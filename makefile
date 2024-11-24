@@ -21,15 +21,15 @@ check-aws-auth:
 # AWS SSO login and configure credentials, only if necessary
 auth: select-profile check-aws-auth
 
-build: build-custom-authorizer build-users
+build: build-custom-authorizer build-user
 
 # Navigate to auth/app directory and build the lambda functions
 build-custom-authorizer:
 	cd api/auth && npm run build
 
-# Navigate to auth/users directory and build the lambda function
-build-users:
-	cd api/users && npm run build
+# Navigate to auth/user directory and build the lambda function
+build-user:
+	cd api/user && npm run build
 
 # Run Terraform init
 terraform-init: auth
