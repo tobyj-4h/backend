@@ -1,6 +1,6 @@
 # Settings Table
 resource "aws_dynamodb_table" "settings" {
-  name         = "Settings"
+  name         = "UserSettings"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PK"
   range_key    = "SK"

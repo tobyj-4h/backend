@@ -32,7 +32,7 @@ module "auth" {
 
 module "user_api" {
   source                        = "../api/users/terraform"
-  base_path                     = "users"
+  base_path                     = "user"
   domain_name                   = var.domain_name
   custom_authorizer_lambda_name = module.auth.custom_authorizer_lambda_name
   custom_authorizer_lambda_arn  = module.auth.custom_authorizer_lambda_arn

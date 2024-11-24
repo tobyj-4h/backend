@@ -3,8 +3,8 @@ data "aws_region" "current" {}
 
 # Define REST API
 resource "aws_api_gateway_rest_api" "users_api" {
-  name        = "UsersAPI"
-  description = "API Gateway REST API for UsersAPI"
+  name        = "UserAPI"
+  description = "API Gateway REST API for UserAPI"
 }
 
 # Log Group
@@ -103,7 +103,7 @@ resource "aws_lambda_permission" "api_gateway_authorizer_permission" {
 }
 
 resource "aws_api_gateway_authorizer" "custom_authorizer" {
-  name                             = "UsersAPICustomAuthorizer"
+  name                             = "UserAPICustomAuthorizer"
   rest_api_id                      = aws_api_gateway_rest_api.users_api.id
   authorizer_uri                   = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/${var.custom_authorizer_lambda_arn}/invocations"
   authorizer_result_ttl_in_seconds = 300

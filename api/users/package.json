@@ -9,14 +9,19 @@
   "author": "",
   "license": "ISC",
   "description": "",
-  "dependencies": {
+  "devDependencies": {
     "@types/aws-lambda": "^8.10.145",
     "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.9.1",
     "esbuild": "^0.24.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@aws-sdk/lib-dynamodb": "^3.699.0",
+    "jsonwebtoken": "^9.0.2"
   }
 }

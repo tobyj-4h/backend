@@ -1,43 +1,60 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { validateOrigin, decodeToken } from "../../utils/auth";
+
+const client = new DynamoDBClient({});
+const ddbDocClient = DynamoDBDocumentClient.from(client);
+
+const TABLE_NAME = process.env.DYNAMODB_TABLE || "";
 
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  console.log("event", event);
+  try {
+    console.log("Event:", event);
 
-  // Validate that the Authorization header exists
-  const authHeader = event.headers.Authorization || event.headers.authorization; // Handle case-insensitivity
-  if (!authHeader) {
-    console.warn("Missing Authorization header");
+    const allowedOrigin = validateOrigin(event.headers.origin || "");
+    const tokenPayload = decodeToken(event.headers.authorization || "");
+
+    const userId = tokenPayload.sub;
+
+    const params = {
+      TableName: TABLE_NAME,
+      KeyConditionExpression: "PK = :pk",
+      ExpressionAttributeValues: {
+        ":pk": `USER#${userId}`,
+      },
+    };
+
+    console.log("Querying DynamoDB with params:", params);
+    const result = await ddbDocClient.send(new QueryCommand(params));
+
     return {
-      statusCode: 401,
+      statusCode: 200,
       headers: {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-        "Access-Control-Allow-Headers":
-          "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+        "Access-Control-Allow-Origin": allowedOrigin,
+        "Access-Control-Allow-Methods": "GET",
       },
       body: JSON.stringify({
-        error: "Unauthorized",
-        message: "Authorization header is required",
+        preferences: result.Items || [],
       }),
     };
+  } catch (error) {
+    // Explicitly narrow the type of error
+    if (error instanceof Error) {
+      console.error("Error:", error.message);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: error.message }),
+      };
+    } else {
+      console.error("Unknown error:", error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "An unknown error occurred" }),
+      };
+    }
   }
-
-  // Log the Authorization header (for debugging purposes)
-  console.log("Authorization header:", authHeader);
-
-  // Process the request
-  return {
-    statusCode: 200,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Access-Control-Allow-Headers":
-        "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-    },
-    body: "success!",
-  };
 };
