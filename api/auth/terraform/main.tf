@@ -17,7 +17,7 @@ resource "aws_iam_role" "lambda_exec" {
   })
 }
 
-# Custome Authorizer Lambda
+# Custom Authorizer Lambda
 resource "aws_lambda_function" "custom_authorizer_lambda" {
   function_name = "CustomAuthorizerFunction"
   handler       = "custom-authorizer.handler"
@@ -41,7 +41,7 @@ resource "aws_cloudwatch_log_group" "custom_authorizer_lambda_log_group" {
   retention_in_days = 7
 }
 
-resource "aws_iam_policy" "user_preferences_post_lambda_policy" {
+resource "aws_iam_policy" "custom_authorizer_lambda_policy" {
   name = "${aws_lambda_function.custom_authorizer_lambda.function_name}Policy"
   policy = jsonencode({
     Version = "2012-10-17"
@@ -63,5 +63,5 @@ resource "aws_iam_policy" "user_preferences_post_lambda_policy" {
 
 resource "aws_iam_role_policy_attachment" "custom_authorizer_lambda_attach_policy" {
   role       = aws_iam_role.lambda_exec.name
-  policy_arn = aws_iam_policy.user_preferences_post_lambda_policy.arn
+  policy_arn = aws_iam_policy.custom_authorizer_lambda_policy.arn
 }

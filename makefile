@@ -1,4 +1,4 @@
-.PHONY: auth build build-custom-authorizer build-users terraform-init terraform-plan terraform-apply terraform-destroy select-profile
+.PHONY: auth build build-custom-authorizer build-user terraform-init terraform-plan terraform-apply terraform-destroy select-profile
 
 # Define default terraform directory
 export TF_DIR := terraform
