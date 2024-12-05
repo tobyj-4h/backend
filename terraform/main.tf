@@ -38,3 +38,11 @@ module "user_api" {
   custom_authorizer_lambda_arn  = module.auth.custom_authorizer_lambda_arn
   environment                   = var.environment
 }
+
+module "schools_api" {
+  source                  = "../api/schools/terraform"
+  environment             = var.environment
+  ecr_image_uri           = var.school_district_query_sagemaker_ecr_image_uri
+  sagemaker_instance_type = var.school_district_query_sagemaker_instance_type
+  sagemaker_endpoint_name = var.school_district_query_sagemaker_endpoint_name
+}

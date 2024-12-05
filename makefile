@@ -38,7 +38,7 @@ terraform-init: auth
 	cd $(TF_DIR) && AWS_PROFILE=$$AWS_PROFILE terraform init
 
 # Run Terraform plan
-terraform-plan: auth build
+terraform-plan: auth
 	@AWS_PROFILE=$$(cat $(PROFILE_FILE)); \
 	echo "Running Terraform plan with profile: $$AWS_PROFILE"; \
 	cd $(TF_DIR) && AWS_PROFILE=$$AWS_PROFILE terraform plan -var-file=../terraform.tfvars

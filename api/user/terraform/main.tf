@@ -16,7 +16,6 @@ resource "aws_cloudwatch_log_group" "user_api_gw_logs" {
 # Deploy API
 resource "aws_api_gateway_deployment" "user_api_deployment" {
   rest_api_id = aws_api_gateway_rest_api.user_api.id
-  description = "Deployed at ${timestamp()}"
 
   triggers = {
     # NOTE: The configuration below will satisfy ordering considerations,
@@ -27,6 +26,10 @@ resource "aws_api_gateway_deployment" "user_api_deployment" {
     #       resources will show a difference after the initial implementation.
     #       It will stabilize to only change when resources change afterwards.
     redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.profile_resource,
+      aws_api_gateway_method.user_profile_get_method,
+      aws_api_gateway_method.user_profile_put_method,
+      aws_api_gateway_method.user_profile_options_method,
       aws_api_gateway_resource.preferences_resource,
       aws_api_gateway_method.user_preferences_get_method,
       aws_api_gateway_method.user_preferences_put_method,
@@ -51,7 +54,6 @@ resource "aws_api_gateway_stage" "user_api_stage" {
   deployment_id = aws_api_gateway_deployment.user_api_deployment.id
   rest_api_id   = aws_api_gateway_rest_api.user_api.id
   stage_name    = "prod"
-  description   = "Deployed at ${timestamp()}"
 
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.user_api_gw_logs.arn
