@@ -17,11 +17,7 @@ resource "aws_iam_role" "lambda_exec" {
   })
 }
 
-<<<<<<< HEAD
 # Custom Authorizer Lambda
-=======
-# Custome Authorizer Lambda
->>>>>>> f0dc811 (initial commit (big))
 resource "aws_lambda_function" "custom_authorizer_lambda" {
   function_name = "CustomAuthorizerFunction"
   handler       = "custom-authorizer.handler"
