@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir \
     flask
 
 # Copy application code
-COPY src/app.py /app.py
+COPY app.py /app.py
 
 # Expose the port Flask will run on
 EXPOSE 8080

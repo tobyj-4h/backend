@@ -18,3 +18,19 @@ variable "sagemaker_endpoint_name" {
   type        = string
   default     = "school-district-query-endpoint"
 }
+
+variable "custom_authorizer_lambda_name" {
+  type = string
+}
+
+variable "custom_authorizer_lambda_arn" {
+  type = string
+}
+
+variable "domain_name" {
+  type = string
+}
+
+variable "base_path" {
+  type = string
+}

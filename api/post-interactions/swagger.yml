@@ -1,0 +1,122 @@
+openapi: 3.0.1
+info:
+  title: Post Interactions API
+  description: API for managing interactions with posts (reactions, comments, reposts, favorites, views)
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/interactions
+paths:
+  /{post_id}/reactions:
+    post:
+      summary: React to a post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Reaction"
+      responses:
+        "201":
+          description: Post reacted to successfully
+    delete:
+      summary: Remove reaction from a post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Reaction removed successfully
+  /{post_id}/comments:
+    post:
+      summary: Comment on a post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Comment"
+      responses:
+        "201":
+          description: Comment added successfully
+  /{post_id}/favorites:
+    post:
+      summary: Favorite a post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Post favorited successfully
+    delete:
+      summary: Remove favorite from a post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Favorite removed successfully
+  /{post_id}/views:
+    post:
+      summary: Record a view for a post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: post_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: View recorded successfully
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Reaction:
+      type: object
+      properties:
+        user_id:
+          type: string
+        emoji:
+          type: string
+    Comment:
+      type: object
+      properties:
+        user_id:
+          type: string
+        content:
+          type: string

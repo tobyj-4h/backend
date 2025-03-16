@@ -1,1 +1,4 @@
+dist/
 env/
+venv/
+tmp_lambda_dir/

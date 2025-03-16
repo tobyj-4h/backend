@@ -39,10 +39,41 @@ module "user_api" {
   environment                   = var.environment
 }
 
-module "schools_api" {
-  source                  = "../api/schools/terraform"
-  environment             = var.environment
-  ecr_image_uri           = var.school_district_query_sagemaker_ecr_image_uri
-  sagemaker_instance_type = var.school_district_query_sagemaker_instance_type
-  sagemaker_endpoint_name = var.school_district_query_sagemaker_endpoint_name
+module "media_api" {
+  source                        = "../api/media/terraform"
+  base_path                     = "media"
+  domain_name                   = var.domain_name
+  custom_authorizer_lambda_name = module.auth.custom_authorizer_lambda_name
+  custom_authorizer_lambda_arn  = module.auth.custom_authorizer_lambda_arn
+  environment                   = var.environment
 }
+
+module "posts_api" {
+  source                        = "../api/posts/terraform"
+  base_path                     = "posts"
+  domain_name                   = var.domain_name
+  custom_authorizer_lambda_name = module.auth.custom_authorizer_lambda_name
+  custom_authorizer_lambda_arn  = module.auth.custom_authorizer_lambda_arn
+  environment                   = var.environment
+}
+
+module "post_interactions_api" {
+  source                        = "../api/post-interactions/terraform"
+  base_path                     = "interactions"
+  domain_name                   = var.domain_name
+  custom_authorizer_lambda_name = module.auth.custom_authorizer_lambda_name
+  custom_authorizer_lambda_arn  = module.auth.custom_authorizer_lambda_arn
+  environment                   = var.environment
+}
+
+# module "schools_api" {
+#   source                        = "../api/schools/terraform"
+#   environment                   = var.environment
+#   base_path                     = "schools"
+#   domain_name                   = var.domain_name
+#   custom_authorizer_lambda_name = module.auth.custom_authorizer_lambda_name
+#   custom_authorizer_lambda_arn  = module.auth.custom_authorizer_lambda_arn
+#   ecr_image_uri                 = var.school_district_query_sagemaker_ecr_image_uri
+#   sagemaker_instance_type       = var.school_district_query_sagemaker_instance_type
+#   sagemaker_endpoint_name       = var.school_district_query_sagemaker_endpoint_name
+# }

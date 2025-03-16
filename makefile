@@ -15,8 +15,8 @@ check-aws-auth:
 	if ! aws sts get-caller-identity --profile $$AWS_PROFILE > /dev/null 2>&1; then \
 		echo "AWS credentials not found or expired. Logging in..."; \
 		aws sso login --profile $$AWS_PROFILE; \
-		aws configure export-credentials --profile $$AWS_PROFILE; \
-	fi
+		aws configure export-credentials --profile $$AWS_PROFILE > /dev/null 2>&1; \
+	fi	
 
 # AWS SSO login and configure credentials, only if necessary
 auth: select-profile check-aws-auth
