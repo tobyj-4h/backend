@@ -2,7 +2,7 @@
 # DynamoDB: Preferences Table
 ##################################################
 resource "aws_dynamodb_table" "preferences" {
-  name         = "UserPreferences"
+  name         = "user_preferences"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PK"
   range_key    = "SK"

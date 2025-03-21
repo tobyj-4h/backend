@@ -2,7 +2,7 @@
 # DynamoDB: UserProfile Table
 ##################################################
 resource "aws_dynamodb_table" "user_profile" {
-  name         = "UserProfile"
+  name         = "user_profile"
   billing_mode = "PAY_PER_REQUEST" # On-demand pricing for cost efficiency
   hash_key     = "PK"
   range_key    = "SK"

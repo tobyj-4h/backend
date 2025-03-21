@@ -44,16 +44,16 @@ resource "aws_iam_role_policy_attachment" "posts_dynamodb_policy_attachment" {
 }
 
 ##################################################
-# LAMBDA: Posts Create
+# LAMBDA: Posts Get Items
 ##################################################
-resource "aws_lambda_function" "posts_create_lambda" {
-  function_name = "PostsCreateFunction"
-  handler       = "posts-create.handler"
+resource "aws_lambda_function" "posts_get_items_lambda" {
+  function_name = "PostsGetItemsFunction"
+  handler       = "posts-get-items.handler"
   runtime       = "nodejs20.x"
   role          = aws_iam_role.posts_lambda_exec.arn
 
-  filename         = "${path.module}/../dist/posts-create.zip"
-  source_code_hash = filebase64sha256("${path.module}/../dist/posts-create.zip")
+  filename         = "${path.module}/../dist/posts-get-items.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/posts-get-items.zip")
 
   environment {
     variables = {
@@ -63,28 +63,97 @@ resource "aws_lambda_function" "posts_create_lambda" {
 }
 
 ##################################################
-# LAMBDA: Posts Create Permission
+# LAMBDA: Posts Get Items Permission
 ##################################################
-resource "aws_lambda_permission" "api_gateway_posts_create_permission" {
+resource "aws_lambda_permission" "api_gateway_posts_get_items_permission" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.posts_create_lambda.function_name
+  function_name = aws_lambda_function.posts_get_items_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.posts_api.execution_arn}/*/*"
 }
 
 ##################################################
-# LAMBDA: Posts Create Log Group
+# LAMBDA: Posts Get Items Log Group
 ##################################################
-resource "aws_cloudwatch_log_group" "posts_create_log_group" {
-  name              = "/aws/lambda/PostsCreateFunction"
+resource "aws_cloudwatch_log_group" "posts_get_items_log_group" {
+  name              = "/aws/lambda/PostsGetItemsFunction"
   retention_in_days = 7
 }
 
 ##################################################
-# LAMBDA: Posts Create Policy
+# LAMBDA: Posts Get Items Policy
 ##################################################
-resource "aws_iam_policy" "posts_create_lambda_policy" {
+resource "aws_iam_policy" "posts_get_items_lambda_policy" {
+  name = "PostsGetItemsPolicy"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Effect = "Allow"
+      Resource = [
+        aws_cloudwatch_log_group.posts_get_items_log_group.arn,
+        "${aws_cloudwatch_log_group.posts_get_items_log_group.arn}:*"
+      ]
+    }]
+  })
+}
+
+##################################################
+# LAMBDA: Posts Get Items Attach Policy
+##################################################
+resource "aws_iam_role_policy_attachment" "posts_get_items_lambda_attach_policy" {
+  role       = aws_iam_role.posts_lambda_exec.name
+  policy_arn = aws_iam_policy.posts_get_items_lambda_policy.arn
+}
+
+
+##################################################
+# LAMBDA: Posts Create Item
+##################################################
+resource "aws_lambda_function" "posts_create_item_lambda" {
+  function_name = "PostsCreateItemFunction"
+  handler       = "posts-create-item.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.posts_lambda_exec.arn
+
+  filename         = "${path.module}/../dist/posts-create-item.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/posts-create-item.zip")
+
+  environment {
+    variables = {
+      POSTS_TABLE = aws_dynamodb_table.posts.id
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Posts Create Item Permission
+##################################################
+resource "aws_lambda_permission" "api_gateway_posts_create_item_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.posts_create_item_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.posts_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Posts Create Item Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "posts_create_item_log_group" {
+  name              = "/aws/lambda/PostsCreateItemFunction"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Posts Create Item Policy
+##################################################
+resource "aws_iam_policy" "posts_create_item_lambda_policy" {
   name = "PostsCreatePolicy"
   policy = jsonencode({
     Version = "2012-10-17"
@@ -96,32 +165,32 @@ resource "aws_iam_policy" "posts_create_lambda_policy" {
       ]
       Effect = "Allow"
       Resource = [
-        aws_cloudwatch_log_group.posts_create_log_group.arn,
-        "${aws_cloudwatch_log_group.posts_create_log_group.arn}:*"
+        aws_cloudwatch_log_group.posts_create_item_log_group.arn,
+        "${aws_cloudwatch_log_group.posts_create_item_log_group.arn}:*"
       ]
     }]
   })
 }
 
 ##################################################
-# LAMBDA: Posts Create Attach Policy
+# LAMBDA: Posts Create Item Attach Policy
 ##################################################
-resource "aws_iam_role_policy_attachment" "posts_create_lambda_attach_policy" {
+resource "aws_iam_role_policy_attachment" "posts_create_item_lambda_attach_policy" {
   role       = aws_iam_role.posts_lambda_exec.name
-  policy_arn = aws_iam_policy.posts_create_lambda_policy.arn
+  policy_arn = aws_iam_policy.posts_create_item_lambda_policy.arn
 }
 
 ##################################################
-# LAMBDA: Posts Get
+# LAMBDA: Posts Get Item
 ##################################################
-resource "aws_lambda_function" "posts_get_lambda" {
-  function_name = "PostsGetFunction"
-  handler       = "posts-get.handler"
+resource "aws_lambda_function" "posts_get_item_lambda" {
+  function_name = "PostsGetItemFunction"
+  handler       = "posts-get-item.handler"
   runtime       = "nodejs20.x"
   role          = aws_iam_role.posts_lambda_exec.arn
 
-  filename         = "${path.module}/../dist/posts-get.zip"
-  source_code_hash = filebase64sha256("${path.module}/../dist/posts-get.zip")
+  filename         = "${path.module}/../dist/posts-get-item.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/posts-get-item.zip")
 
   environment {
     variables = {
@@ -131,29 +200,29 @@ resource "aws_lambda_function" "posts_get_lambda" {
 }
 
 ##################################################
-# LAMBDA: Posts Get Permission
+# LAMBDA: Posts Get Item Permission
 ##################################################
-resource "aws_lambda_permission" "api_gateway_posts_get_permission" {
+resource "aws_lambda_permission" "api_gateway_posts_get_item_permission" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.posts_get_lambda.function_name
+  function_name = aws_lambda_function.posts_get_item_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.posts_api.execution_arn}/*/*"
 }
 
 ##################################################
-# LAMBDA: Posts Get Log Group
+# LAMBDA: Posts Get Item  Log Group
 ##################################################
-resource "aws_cloudwatch_log_group" "posts_get_log_group" {
-  name              = "/aws/lambda/PostsGetFunction"
+resource "aws_cloudwatch_log_group" "posts_get_item_log_group" {
+  name              = "/aws/lambda/PostsGetItemFunction"
   retention_in_days = 7
 }
 
 ##################################################
-# LAMBDA: Posts Get Policy
+# LAMBDA: Posts Get Item Policy
 ##################################################
-resource "aws_iam_policy" "posts_get_lambda_policy" {
-  name = "PostsGetPolicy"
+resource "aws_iam_policy" "posts_get_item_lambda_policy" {
+  name = "PostsGetItemPolicy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -164,32 +233,32 @@ resource "aws_iam_policy" "posts_get_lambda_policy" {
       ]
       Effect = "Allow"
       Resource = [
-        aws_cloudwatch_log_group.posts_get_log_group.arn,
-        "${aws_cloudwatch_log_group.posts_get_log_group.arn}:*"
+        aws_cloudwatch_log_group.posts_get_item_log_group.arn,
+        "${aws_cloudwatch_log_group.posts_get_item_log_group.arn}:*"
       ]
     }]
   })
 }
 
 ##################################################
-# LAMBDA: Posts Get Attach Policy
+# LAMBDA: Posts Get Item Attach Policy
 ##################################################
-resource "aws_iam_role_policy_attachment" "posts_get_lambda_attach_policy" {
+resource "aws_iam_role_policy_attachment" "posts_get_item_lambda_attach_policy" {
   role       = aws_iam_role.posts_lambda_exec.name
-  policy_arn = aws_iam_policy.posts_get_lambda_policy.arn
+  policy_arn = aws_iam_policy.posts_get_item_lambda_policy.arn
 }
 
 ##################################################
-# LAMBDA: Posts Update
+# LAMBDA: Posts Update Item
 ##################################################
-resource "aws_lambda_function" "posts_update_lambda" {
-  function_name = "PostsUpdateFunction"
-  handler       = "posts-patch.handler"
+resource "aws_lambda_function" "posts_update_item_lambda" {
+  function_name = "PostsUpdateItemFunction"
+  handler       = "posts-update-item.handler"
   runtime       = "nodejs20.x"
   role          = aws_iam_role.posts_lambda_exec.arn
 
-  filename         = "${path.module}/../dist/posts-patch.zip"
-  source_code_hash = filebase64sha256("${path.module}/../dist/posts-patch.zip")
+  filename         = "${path.module}/../dist/posts-update-item.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/posts-update-item.zip")
 
   environment {
     variables = {
@@ -199,29 +268,29 @@ resource "aws_lambda_function" "posts_update_lambda" {
 }
 
 ##################################################
-# LAMBDA: Posts Update Permission
+# LAMBDA: Posts Update Item Permission
 ##################################################
-resource "aws_lambda_permission" "api_gateway_posts_update_permission" {
+resource "aws_lambda_permission" "api_gateway_posts_update_item_permission" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.posts_update_lambda.function_name
+  function_name = aws_lambda_function.posts_update_item_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.posts_api.execution_arn}/*/*"
 }
 
 ##################################################
-# LAMBDA: Posts Update Log Group
+# LAMBDA: Posts Update Item Log Group
 ##################################################
-resource "aws_cloudwatch_log_group" "posts_update_log_group" {
-  name              = "/aws/lambda/PostsUpdateFunction"
+resource "aws_cloudwatch_log_group" "posts_update_item_log_group" {
+  name              = "/aws/lambda/PostsUpdateItemFunction"
   retention_in_days = 7
 }
 
 ##################################################
-# LAMBDA: Posts Update Policy
+# LAMBDA: Posts Update Item Policy
 ##################################################
-resource "aws_iam_policy" "posts_update_lambda_policy" {
-  name = "PostsUpdatePolicy"
+resource "aws_iam_policy" "posts_update_item_lambda_policy" {
+  name = "PostsUpdateItemPolicy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -232,32 +301,32 @@ resource "aws_iam_policy" "posts_update_lambda_policy" {
       ]
       Effect = "Allow"
       Resource = [
-        aws_cloudwatch_log_group.posts_update_log_group.arn,
-        "${aws_cloudwatch_log_group.posts_update_log_group.arn}:*"
+        aws_cloudwatch_log_group.posts_update_item_log_group.arn,
+        "${aws_cloudwatch_log_group.posts_update_item_log_group.arn}:*"
       ]
     }]
   })
 }
 
 ##################################################
-# LAMBDA: Posts Update Attach Policy
+# LAMBDA: Posts Update Item Attach Policy
 ##################################################
-resource "aws_iam_role_policy_attachment" "posts_update_lambda_attach_policy" {
+resource "aws_iam_role_policy_attachment" "posts_update_item_lambda_attach_policy" {
   role       = aws_iam_role.posts_lambda_exec.name
-  policy_arn = aws_iam_policy.posts_update_lambda_policy.arn
+  policy_arn = aws_iam_policy.posts_update_item_lambda_policy.arn
 }
 
 ##################################################
-# LAMBDA: Posts Delete
+# LAMBDA: Posts Delete Item
 ##################################################
-resource "aws_lambda_function" "posts_delete_lambda" {
-  function_name = "PostsDeleteFunction"
-  handler       = "posts-delete.handler"
+resource "aws_lambda_function" "posts_delete_item_lambda" {
+  function_name = "PostsDeleteItemFunction"
+  handler       = "posts-delete-item.handler"
   runtime       = "nodejs20.x"
   role          = aws_iam_role.posts_lambda_exec.arn
 
-  filename         = "${path.module}/../dist/posts-delete.zip"
-  source_code_hash = filebase64sha256("${path.module}/../dist/posts-delete.zip")
+  filename         = "${path.module}/../dist/posts-delete-item.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/posts-delete-item.zip")
 
   environment {
     variables = {
@@ -267,28 +336,28 @@ resource "aws_lambda_function" "posts_delete_lambda" {
 }
 
 ##################################################
-# LAMBDA: Posts Delete Permission
+# LAMBDA: Posts Delete Item Permission
 ##################################################
-resource "aws_lambda_permission" "api_gateway_posts_delete_permission" {
+resource "aws_lambda_permission" "api_gateway_posts_delete_item_permission" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.posts_delete_lambda.function_name
+  function_name = aws_lambda_function.posts_delete_item_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.posts_api.execution_arn}/*/*"
 }
 
 ##################################################
-# LAMBDA: Posts Delete Log Group
+# LAMBDA: Posts Delete Item Log Group
 ##################################################
-resource "aws_cloudwatch_log_group" "posts_delete_log_group" {
-  name              = "/aws/lambda/PostsDeleteFunction"
+resource "aws_cloudwatch_log_group" "posts_delete_item_log_group" {
+  name              = "/aws/lambda/PostsDeleteItemFunction"
   retention_in_days = 7
 }
 
 ##################################################
-# LAMBDA: Posts Delete Policy
+# LAMBDA: Posts Delete Item Policy
 ##################################################
-resource "aws_iam_policy" "posts_delete_lambda_policy" {
+resource "aws_iam_policy" "posts_delete_item_lambda_policy" {
   name = "PostsDeletePolicy"
   policy = jsonencode({
     Version = "2012-10-17"
@@ -300,139 +369,17 @@ resource "aws_iam_policy" "posts_delete_lambda_policy" {
       ]
       Effect = "Allow"
       Resource = [
-        aws_cloudwatch_log_group.posts_delete_log_group.arn,
-        "${aws_cloudwatch_log_group.posts_delete_log_group.arn}:*"
+        aws_cloudwatch_log_group.posts_delete_item_log_group.arn,
+        "${aws_cloudwatch_log_group.posts_delete_item_log_group.arn}:*"
       ]
     }]
   })
 }
 
 ##################################################
-# LAMBDA: Posts Delete Attach Policy
+# LAMBDA: Posts Delete Item Attach Policy
 ##################################################
-resource "aws_iam_role_policy_attachment" "posts_delete_lambda_attach_policy" {
+resource "aws_iam_role_policy_attachment" "posts_delete_item_lambda_attach_policy" {
   role       = aws_iam_role.posts_lambda_exec.name
-  policy_arn = aws_iam_policy.posts_delete_lambda_policy.arn
-}
-
-##################################################
-# API Gateway: Posts Resource (`/`)
-##################################################
-resource "aws_api_gateway_resource" "posts_resource" {
-  rest_api_id = aws_api_gateway_rest_api.posts_api.id
-  parent_id   = aws_api_gateway_rest_api.posts_api.root_resource_id
-  path_part   = "posts"
-}
-
-##################################################
-# API Gateway: Create Post (POST /)
-##################################################
-resource "aws_api_gateway_method" "posts_post_method" {
-  rest_api_id   = aws_api_gateway_rest_api.posts_api.id
-  resource_id   = aws_api_gateway_resource.posts_resource.id
-  http_method   = "POST"
-  authorization = "CUSTOM"
-  authorizer_id = aws_api_gateway_authorizer.custom_authorizer.id
-}
-
-resource "aws_api_gateway_integration" "posts_post_lambda_integration" {
-  rest_api_id             = aws_api_gateway_rest_api.posts_api.id
-  resource_id             = aws_api_gateway_resource.posts_resource.id
-  http_method             = aws_api_gateway_method.posts_post_method.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.posts_create_lambda.invoke_arn
-}
-
-##################################################
-# API Gateway: Post Item Resource (`/{post_id}`)
-##################################################
-resource "aws_api_gateway_resource" "posts_item_resource" {
-  rest_api_id = aws_api_gateway_rest_api.posts_api.id
-  parent_id   = aws_api_gateway_resource.posts_resource.id
-  path_part   = "{post_id}"
-}
-
-##################################################
-# API Gateway: Get Post (GET /{post_id})
-##################################################
-resource "aws_api_gateway_method" "posts_get_method" {
-  rest_api_id   = aws_api_gateway_rest_api.posts_api.id
-  resource_id   = aws_api_gateway_resource.posts_item_resource.id
-  http_method   = "GET"
-  authorization = "CUSTOM"
-  authorizer_id = aws_api_gateway_authorizer.custom_authorizer.id
-
-  request_parameters = {
-    "method.request.path.post_id" = true
-  }
-}
-
-resource "aws_api_gateway_integration" "posts_get_lambda_integration" {
-  rest_api_id             = aws_api_gateway_rest_api.posts_api.id
-  resource_id             = aws_api_gateway_resource.posts_item_resource.id
-  http_method             = aws_api_gateway_method.posts_get_method.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.posts_get_lambda.invoke_arn
-
-  request_parameters = {
-    "integration.request.path.post_id" = "method.request.path.post_id"
-  }
-}
-
-##################################################
-# API Gateway: Update Post (PUT /{post_id})
-##################################################
-resource "aws_api_gateway_method" "posts_put_method" {
-  rest_api_id   = aws_api_gateway_rest_api.posts_api.id
-  resource_id   = aws_api_gateway_resource.posts_item_resource.id
-  http_method   = "PUT"
-  authorization = "CUSTOM"
-  authorizer_id = aws_api_gateway_authorizer.custom_authorizer.id
-
-  request_parameters = {
-    "method.request.path.post_id" = true
-  }
-}
-
-resource "aws_api_gateway_integration" "posts_put_lambda_integration" {
-  rest_api_id             = aws_api_gateway_rest_api.posts_api.id
-  resource_id             = aws_api_gateway_resource.posts_item_resource.id
-  http_method             = aws_api_gateway_method.posts_put_method.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.posts_update_lambda.invoke_arn
-
-  request_parameters = {
-    "integration.request.path.post_id" = "method.request.path.post_id"
-  }
-}
-
-##################################################
-# API Gateway: Delete Post (DELETE /{post_id})
-##################################################
-resource "aws_api_gateway_method" "posts_delete_method" {
-  rest_api_id   = aws_api_gateway_rest_api.posts_api.id
-  resource_id   = aws_api_gateway_resource.posts_item_resource.id
-  http_method   = "DELETE"
-  authorization = "CUSTOM"
-  authorizer_id = aws_api_gateway_authorizer.custom_authorizer.id
-
-  request_parameters = {
-    "method.request.path.post_id" = true
-  }
-}
-
-resource "aws_api_gateway_integration" "posts_delete_lambda_integration" {
-  rest_api_id             = aws_api_gateway_rest_api.posts_api.id
-  resource_id             = aws_api_gateway_resource.posts_item_resource.id
-  http_method             = aws_api_gateway_method.posts_delete_method.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.posts_delete_lambda.invoke_arn
-
-  request_parameters = {
-    "integration.request.path.post_id" = "method.request.path.post_id"
-  }
+  policy_arn = aws_iam_policy.posts_delete_item_lambda_policy.arn
 }

@@ -10,7 +10,7 @@ resource "aws_api_gateway_rest_api" "interactions_api" {
 # CloudWatch Log Group for API Gateway
 resource "aws_cloudwatch_log_group" "interactions_api_gw_logs" {
   name              = "/aws/api-gateway/interactions-api"
-  retention_in_days = 14 # Customize as needed
+  retention_in_days = 14 # Customize as needed`
 }
 
 # Deploy API Gateway for Interactions

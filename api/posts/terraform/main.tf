@@ -19,11 +19,12 @@ resource "aws_api_gateway_deployment" "posts_api_deployment" {
 
   triggers = {
     redeployment = sha1(jsonencode([
-      aws_api_gateway_resource.posts_resource,
-      aws_api_gateway_method.posts_post_method,
-      aws_api_gateway_method.posts_get_method,
-      aws_api_gateway_method.posts_put_method,
-      aws_api_gateway_method.posts_delete_method
+      aws_api_gateway_resource.posts_item_resource,
+      aws_api_gateway_method.posts_get_items_method,
+      aws_api_gateway_method.posts_create_item_method,
+      aws_api_gateway_method.posts_get_item_method,
+      aws_api_gateway_method.posts_item_put_method,
+      aws_api_gateway_method.posts_item_delete_method
     ]))
   }
 
