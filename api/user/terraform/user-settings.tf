@@ -136,7 +136,7 @@ resource "aws_api_gateway_method" "user_settings_get_method" {
   resource_id   = aws_api_gateway_resource.settings_resource.id
   http_method   = "GET"
   authorization = "CUSTOM"
-  authorizer_id = aws_api_gateway_authorizer.custom_authorizer.id
+  authorizer_id = aws_api_gateway_authorizer.user_authorizer.id
 
   # Enable CORS for this method
   api_key_required = false
@@ -232,7 +232,7 @@ resource "aws_api_gateway_method" "user_settings_put_method" {
   resource_id   = aws_api_gateway_resource.settings_resource.id
   http_method   = "PUT"
   authorization = "CUSTOM"
-  authorizer_id = aws_api_gateway_authorizer.custom_authorizer.id
+  authorizer_id = aws_api_gateway_authorizer.user_authorizer.id
 
   # Enable CORS for this method
   api_key_required = false

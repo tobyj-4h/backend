@@ -31,12 +31,11 @@ module "auth" {
 }
 
 module "user_api" {
-  source                        = "../api/user/terraform"
-  base_path                     = "user"
-  domain_name                   = var.domain_name
-  custom_authorizer_lambda_name = module.auth.custom_authorizer_lambda_name
-  custom_authorizer_lambda_arn  = module.auth.custom_authorizer_lambda_arn
-  environment                   = var.environment
+  source       = "../api/user/terraform"
+  base_path    = "user"
+  domain_name  = var.domain_name
+  user_pool_id = var.user_pool_id
+  environment  = var.environment
 }
 
 module "media_api" {
@@ -49,12 +48,11 @@ module "media_api" {
 }
 
 module "posts_api" {
-  source                        = "../api/posts/terraform"
-  base_path                     = "posts"
-  domain_name                   = var.domain_name
-  custom_authorizer_lambda_name = module.auth.custom_authorizer_lambda_name
-  custom_authorizer_lambda_arn  = module.auth.custom_authorizer_lambda_arn
-  environment                   = var.environment
+  source       = "../api/posts/terraform"
+  base_path    = "posts"
+  domain_name  = var.domain_name
+  user_pool_id = var.user_pool_id
+  environment  = var.environment
 }
 
 module "post_interactions_api" {
@@ -64,6 +62,14 @@ module "post_interactions_api" {
   custom_authorizer_lambda_name = module.auth.custom_authorizer_lambda_name
   custom_authorizer_lambda_arn  = module.auth.custom_authorizer_lambda_arn
   environment                   = var.environment
+}
+
+module "location_api" {
+  source       = "../api/location/terraform"
+  base_path    = "location"
+  domain_name  = var.domain_name
+  user_pool_id = var.user_pool_id
+  environment  = var.environment
 }
 
 # module "schools_api" {

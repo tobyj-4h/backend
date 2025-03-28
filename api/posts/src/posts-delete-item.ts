@@ -3,10 +3,38 @@ import { DynamoDBClient, DeleteItemCommand } from "@aws-sdk/client-dynamodb";
 
 const dynamoDbClient = new DynamoDBClient({ region: "us-east-1" }); // Specify your region
 const POSTS_TABLE = process.env.POSTS_TABLE || "posts"; // Assuming the table name is passed as an environment variable
+const REQUIRED_SCOPE = process.env.REQUIRED_SCOPE;
 
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
+  console.log(
+    "authorizer",
+    JSON.stringify(event.requestContext.authorizer, null, 2)
+  );
+
+  // Extract scopes and user info from authorizer context
+  const scopes = (event.requestContext.authorizer?.scopes || "").split(" ");
+  const userId = event.requestContext.authorizer?.user;
+  const claims = JSON.parse(event.requestContext.authorizer?.claims);
+  const username = claims?.username;
+
+  console.log("scopes", scopes);
+  console.log("userId", userId);
+  console.log("claims", claims);
+  console.log("username", username);
+
+  if (
+    REQUIRED_SCOPE &&
+    !scopes.includes(REQUIRED_SCOPE) &&
+    !scopes.includes("admin")
+  ) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({ message: "Insufficient permissions" }),
+    };
+  }
+
   const postId = event.pathParameters?.post_id;
 
   // Check if the postId is provided

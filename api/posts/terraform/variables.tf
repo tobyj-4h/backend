@@ -10,10 +10,6 @@ variable "environment" {
   type = string
 }
 
-variable "custom_authorizer_lambda_name" {
-  type = string
-}
-
-variable "custom_authorizer_lambda_arn" {
+variable "user_pool_id" {
   type = string
 }

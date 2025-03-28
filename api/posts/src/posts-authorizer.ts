@@ -30,19 +30,34 @@ export const handler = async (
   }
 
   try {
+    // Verify token signature and expiration
     const decodedToken = await verifyToken(token);
-
     console.log("Decoded token:", decodedToken);
 
+    // Extract scopes from token
+    // const scopes = decodedToken.scope ? decodedToken.scope.split(" ") : [];
+    const scope = decodedToken.scope;
+
+    // Parse the ARN to create a policy that covers all endpoints
+    const arnParts = event.methodArn.split(":");
+    const apiGatewayArnPart = arnParts[5].split("/");
+    const restApiId = apiGatewayArnPart[0];
+    const stage = apiGatewayArnPart[1];
+
+    // Create a resource pattern that covers all endpoints
+    const resourceArn = `arn:aws:execute-api:${arnParts[3]}:${arnParts[4]}:${restApiId}/${stage}/*/*`;
+
+    // Get the principalId
+    const principalId = decodedToken.sub || "user";
+
+    // Generate a policy with the permissive resource pattern
     const policy = generatePolicy(
-      decodedToken.sub || "user",
+      principalId,
       "Allow",
-      event.methodArn,
-      {
-        sub: decodedToken.sub,
-        username: decodedToken["cognito:username"], // or decodedToken.username depending on your token
-        email: decodedToken.email,
-      }
+      resourceArn,
+      scope,
+      decodedToken["cognito:username"],
+      decodedToken.email
     );
 
     console.log("Generated policy:", JSON.stringify(policy));
@@ -132,14 +147,18 @@ const getPublicKey = async (kid: string): Promise<string> => {
  * @param principalId - The principal user ID
  * @param effect - "Allow" or "Deny"
  * @param resource - The resource ARN
- * @param claims
+ * @param scope -
+ * @param username -
+ * @param email -
  * @returns IAM policy document
  */
 const generatePolicy = (
   principalId: string,
   effect: "Allow" | "Deny",
   resource: string,
-  claims: Record<string, any> = {}
+  scope: string,
+  username: string,
+  email: string
 ): APIGatewayAuthorizerResult => {
   // Parse the methodArn to create a more permissive version if needed
   const arnParts = resource.split(":");
@@ -148,11 +167,8 @@ const generatePolicy = (
   const stage = apiGatewayArnPart[1];
   const httpVerb = apiGatewayArnPart[2];
 
-  // Allow access to this endpoint for any stage
-  const resourceArn = `arn:aws:execute-api:${arnParts[3]}:${arnParts[4]}:${restApiId}/*/${httpVerb}/`;
-
-  // Keep the original resource ARN
-  // const resourceArn = resource;
+  // Allow access to this endpoint
+  const resourceArn = `arn:aws:execute-api:${arnParts[3]}:${arnParts[4]}:${restApiId}/${stage}/${httpVerb}/`;
 
   const policyDocument = {
     Version: "2012-10-17",
@@ -165,12 +181,16 @@ const generatePolicy = (
     ],
   };
 
-  return {
-    principalId,
+  const policy = {
+    principalId: principalId,
     policyDocument,
     context: {
       user: principalId,
-      claims: JSON.stringify(claims),
+      username: username,
+      email: email,
+      scope: scope,
     },
   };
+
+  return policy;
 };

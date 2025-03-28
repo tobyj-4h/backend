@@ -9,17 +9,41 @@ import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 
 const dynamoDb = new DynamoDBClient({});
 const POSTS_TABLE = process.env.POSTS_TABLE || "posts";
+const REQUIRED_SCOPE = process.env.REQUIRED_SCOPE;
 
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
+    console.log(
+      "authorizer",
+      JSON.stringify(event.requestContext.authorizer, null, 2)
+    );
+
+    // Extract scopes and user info from authorizer context
+    const scopes = (event.requestContext.authorizer?.scopes || "").split(" ");
+    const userId = event.requestContext.authorizer?.user;
+    const claims = JSON.parse(event.requestContext.authorizer?.claims);
+    const username = claims?.username;
+
+    console.log("scopes", scopes);
+    console.log("userId", userId);
+    console.log("claims", claims);
+    console.log("username", username);
+
+    if (
+      REQUIRED_SCOPE &&
+      !scopes.includes(REQUIRED_SCOPE) &&
+      !scopes.includes("admin")
+    ) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ message: "Insufficient permissions" }),
+      };
+    }
+
     const postId = event.pathParameters?.post_id;
     const requestBody = JSON.parse(event.body || "{}");
-
-    // Extract user information from request context or JWT token
-    const userId =
-      event.requestContext.authorizer?.claims?.sub || "unknown-user";
 
     if (!postId) {
       return {

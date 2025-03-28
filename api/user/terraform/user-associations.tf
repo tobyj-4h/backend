@@ -147,7 +147,7 @@ resource "aws_api_gateway_method" "user_associations_get_method" {
   resource_id   = aws_api_gateway_resource.associations_resource.id
   http_method   = "GET"
   authorization = "CUSTOM"
-  authorizer_id = aws_api_gateway_authorizer.custom_authorizer.id
+  authorizer_id = aws_api_gateway_authorizer.user_authorizer.id
 
   # Enable CORS for this method
   api_key_required = false
@@ -243,7 +243,7 @@ resource "aws_api_gateway_method" "user_associations_put_method" {
   resource_id   = aws_api_gateway_resource.associations_resource.id
   http_method   = "PUT"
   authorization = "CUSTOM"
-  authorizer_id = aws_api_gateway_authorizer.custom_authorizer.id
+  authorizer_id = aws_api_gateway_authorizer.user_authorizer.id
 
   # Enable CORS for this method
   api_key_required = false

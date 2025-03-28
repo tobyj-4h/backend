@@ -83,16 +83,16 @@ resource "aws_api_gateway_base_path_mapping" "posts_api_mapping" {
 resource "aws_lambda_permission" "api_gateway_authorizer_permission" {
   statement_id  = "PostsAPIAllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = var.custom_authorizer_lambda_name
+  function_name = aws_lambda_function.posts_authorizer_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.posts_api.execution_arn}/*/*"
 }
 
 # Define Custom Authorizer for API Gateway
-resource "aws_api_gateway_authorizer" "custom_authorizer" {
-  name                             = "PostsAPICustomAuthorizer"
+resource "aws_api_gateway_authorizer" "posts_authorizer" {
+  name                             = "PostsAPIAuthorizer"
   rest_api_id                      = aws_api_gateway_rest_api.posts_api.id
-  authorizer_uri                   = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/${var.custom_authorizer_lambda_arn}/invocations"
+  authorizer_uri                   = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/${aws_lambda_function.posts_authorizer_lambda.arn}/invocations"
   authorizer_result_ttl_in_seconds = 300
   identity_source                  = "method.request.header.Authorization"
   type                             = "TOKEN"

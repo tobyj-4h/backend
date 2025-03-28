@@ -1,7 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { validateOrigin, decodeToken } from "../../utils/auth";
 
 const client = new DynamoDBClient({});
 const ddbDocClient = DynamoDBDocumentClient.from(client);
@@ -14,31 +13,31 @@ export const handler = async (
   try {
     console.log("Event:", event);
 
-    const allowedOrigin = validateOrigin(event.headers.origin || "");
-    const tokenPayload = decodeToken(event.headers.authorization || "");
+    // const allowedOrigin = validateOrigin(event.headers.origin || "");
+    // const tokenPayload = decodeToken(event.headers.authorization || "");
 
-    const userId = tokenPayload.sub;
+    // const userId = tokenPayload.sub;
 
-    const params = {
-      TableName: TABLE_NAME,
-      KeyConditionExpression: "PK = :pk",
-      ExpressionAttributeValues: {
-        ":pk": `USER#${userId}`,
-      },
-    };
+    // const params = {
+    //   TableName: TABLE_NAME,
+    //   KeyConditionExpression: "PK = :pk",
+    //   ExpressionAttributeValues: {
+    //     ":pk": `USER#${userId}`,
+    //   },
+    // };
 
-    console.log("Querying DynamoDB with params:", params);
-    const result = await ddbDocClient.send(new QueryCommand(params));
+    // console.log("Querying DynamoDB with params:", params);
+    // const result = await ddbDocClient.send(new QueryCommand(params));
 
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": allowedOrigin,
+        "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET",
       },
       body: JSON.stringify({
-        preferences: result.Items || [],
+        // preferences: result.Items || [],
       }),
     };
   } catch (error) {

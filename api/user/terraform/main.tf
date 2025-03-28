@@ -41,7 +41,10 @@ resource "aws_api_gateway_deployment" "user_api_deployment" {
       aws_api_gateway_resource.settings_resource,
       aws_api_gateway_method.user_settings_get_method,
       aws_api_gateway_method.user_settings_put_method,
-      aws_api_gateway_method.user_settings_options_method
+      aws_api_gateway_method.user_settings_options_method,
+      aws_api_gateway_resource.handle_resource,
+      aws_api_gateway_resource.handle_id_resource,
+      aws_api_gateway_method.handle_check_method
     ]))
   }
 
@@ -99,15 +102,15 @@ resource "aws_api_gateway_base_path_mapping" "user_api_mapping" {
 resource "aws_lambda_permission" "api_gateway_authorizer_permission" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = var.custom_authorizer_lambda_name
+  function_name = aws_lambda_function.user_authorizer_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.user_api.execution_arn}/*/*"
 }
 
-resource "aws_api_gateway_authorizer" "custom_authorizer" {
+resource "aws_api_gateway_authorizer" "user_authorizer" {
   name                             = "UserAPICustomAuthorizer"
   rest_api_id                      = aws_api_gateway_rest_api.user_api.id
-  authorizer_uri                   = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/${var.custom_authorizer_lambda_arn}/invocations"
+  authorizer_uri                   = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/${aws_lambda_function.user_authorizer_lambda.arn}/invocations"
   authorizer_result_ttl_in_seconds = 300
   identity_source                  = "method.request.header.Authorization"
   type                             = "TOKEN"

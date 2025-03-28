@@ -57,7 +57,8 @@ resource "aws_lambda_function" "posts_get_items_lambda" {
 
   environment {
     variables = {
-      POSTS_TABLE = aws_dynamodb_table.posts.id
+      POSTS_TABLE    = aws_dynamodb_table.posts.id
+      REQUIRED_SCOPE = "https://api.dev.fourhorizonsed.com/beehive.post.read"
     }
   }
 }
@@ -126,7 +127,8 @@ resource "aws_lambda_function" "posts_create_item_lambda" {
 
   environment {
     variables = {
-      POSTS_TABLE = aws_dynamodb_table.posts.id
+      POSTS_TABLE    = aws_dynamodb_table.posts.id
+      REQUIRED_SCOPE = "https://api.dev.fourhorizonsed.com/beehive.post.write"
     }
   }
 }
@@ -194,7 +196,8 @@ resource "aws_lambda_function" "posts_get_item_lambda" {
 
   environment {
     variables = {
-      POSTS_TABLE = aws_dynamodb_table.posts.id
+      POSTS_TABLE    = aws_dynamodb_table.posts.id
+      REQUIRED_SCOPE = "https://api.dev.fourhorizonsed.com/beehive.post.read"
     }
   }
 }
@@ -262,7 +265,8 @@ resource "aws_lambda_function" "posts_update_item_lambda" {
 
   environment {
     variables = {
-      POSTS_TABLE = aws_dynamodb_table.posts.id
+      POSTS_TABLE    = aws_dynamodb_table.posts.id
+      REQUIRED_SCOPE = "https://api.dev.fourhorizonsed.com/beehive.post.write"
     }
   }
 }
@@ -330,7 +334,8 @@ resource "aws_lambda_function" "posts_delete_item_lambda" {
 
   environment {
     variables = {
-      POSTS_TABLE = aws_dynamodb_table.posts.id
+      POSTS_TABLE    = aws_dynamodb_table.posts.id
+      REQUIRED_SCOPE = "https://api.dev.fourhorizonsed.com/beehive.post.admin"
     }
   }
 }
@@ -382,4 +387,83 @@ resource "aws_iam_policy" "posts_delete_item_lambda_policy" {
 resource "aws_iam_role_policy_attachment" "posts_delete_item_lambda_attach_policy" {
   role       = aws_iam_role.posts_lambda_exec.name
   policy_arn = aws_iam_policy.posts_delete_item_lambda_policy.arn
+}
+
+
+##################################################
+# LAMBDA: Posts Authorizer Lambda Exec Role
+##################################################
+resource "aws_iam_role" "posts_authorizer_lambda_exec" {
+  name = "posts_authorizer_lambda_exec_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      }
+    }]
+  })
+}
+
+##################################################
+# LAMBDA: Posts Authorizer Lambda
+##################################################
+resource "aws_lambda_function" "posts_authorizer_lambda" {
+  function_name = "PostsAuthorizerFunction"
+  handler       = "posts-authorizer.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.posts_authorizer_lambda_exec.arn
+
+  filename         = "${path.module}/../dist/posts-authorizer.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/posts-authorizer.zip")
+
+  environment {
+    variables = {
+      LOG_LEVEL    = "INFO"
+      USER_POOL_ID = var.user_pool_id
+      REGION       = data.aws_region.current.name
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Posts Authorizer Lambda Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "posts_authorizer_lambda_log_group" {
+  name              = "/aws/lambda/${aws_lambda_function.posts_authorizer_lambda.function_name}"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Posts Authorizer Lambda Policy
+##################################################
+resource "aws_iam_policy" "posts_authorizer_lambda_policy" {
+  name = "${aws_lambda_function.posts_authorizer_lambda.function_name}Policy"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Effect = "Allow"
+      Resource = [
+        aws_cloudwatch_log_group.posts_authorizer_lambda_log_group.arn,       # Restrict to specific log group
+        "${aws_cloudwatch_log_group.posts_authorizer_lambda_log_group.arn}:*" # Allow access to log streams in the group
+      ]
+      }
+    ]
+  })
+}
+
+##################################################
+# LAMBDA: Posts Authorizer Lambda Attach Policy
+##################################################
+resource "aws_iam_role_policy_attachment" "posts_authorizer_lambda_attach_policy" {
+  role       = aws_iam_role.posts_authorizer_lambda_exec.name
+  policy_arn = aws_iam_policy.posts_authorizer_lambda_policy.arn
 }
