@@ -1,18 +1,28 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  DynamoDBDocumentClient,
+  PutCommand,
+  GetCommand,
+} from "@aws-sdk/lib-dynamodb";
 import { ulid } from "ulid";
 
 const client = new DynamoDBClient({});
 const dynamoDb = DynamoDBDocumentClient.from(client);
 const POSTS_TABLE = process.env.POSTS_TABLE || "posts";
+const USER_PROFILE_TABLE = process.env.USER_PROFILE_TABLE || "user_profile";
 const REQUIRED_SCOPE = process.env.REQUIRED_SCOPE;
+
+interface UserProfile {
+  handle: string;
+  profile_picture_url?: string;
+  first_name: string;
+  last_name: string;
+}
 
 interface Post {
   id: string;
   user_id: string;
-  username: string;
-  avatar_url: string;
   timestamp: string;
   content: string;
   content_json?: any;
@@ -29,6 +39,10 @@ interface Post {
   is_edited: boolean;
   edited_timestamp?: string;
   is_deleted: boolean;
+}
+
+interface PostWithUserInfo extends Post {
+  user?: UserProfile;
 }
 
 export const handler = async (
@@ -80,8 +94,6 @@ export const handler = async (
     const post: Post = {
       id: postId,
       user_id: userId,
-      username: requestBody.username || "", // Default to empty string if not provided
-      avatar_url: requestBody.avatar_url || "",
       timestamp: timestamp,
       content: requestBody.content,
       content_json: requestBody.content_json || null,
@@ -101,13 +113,42 @@ export const handler = async (
 
     await dynamoDb.send(params);
 
+    // Fetch user profile information
+    let postWithUserInfo: PostWithUserInfo = { ...post };
+
+    try {
+      const userProfileParams = new GetCommand({
+        TableName: USER_PROFILE_TABLE,
+        Key: {
+          PK: `USER#${userId}`,
+          SK: `PROFILE#${userId}`,
+        },
+        ProjectionExpression:
+          "user_id, handle, profile_picture_url, first_name, last_name",
+      });
+
+      const userProfileResult = await dynamoDb.send(userProfileParams);
+
+      if (userProfileResult.Item) {
+        postWithUserInfo.user = {
+          handle: userProfileResult.Item.handle,
+          profile_picture_url: userProfileResult.Item.profile_picture_url,
+          first_name: userProfileResult.Item.first_name,
+          last_name: userProfileResult.Item.last_name,
+        };
+      }
+    } catch (userError) {
+      console.error("Error fetching user profile:", userError);
+      // Continue without user info rather than failing the entire request
+    }
+
     return {
       statusCode: 201,
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify(post),
+      body: JSON.stringify(postWithUserInfo),
     };
   } catch (error) {
     console.error("Error creating post:", error);

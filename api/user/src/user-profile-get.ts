@@ -4,7 +4,7 @@ import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({});
 const dynamoDb = DynamoDBDocumentClient.from(client);
-const TABLE_NAME = process.env.TABLE_NAME || "user_profile";
+const PROFILE_TABLE = process.env.PROFILE_TABLE || "user_profile";
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -23,9 +23,10 @@ export const handler = async (
     console.log("userId", userId);
 
     const params = new GetCommand({
-      TableName: TABLE_NAME,
+      TableName: PROFILE_TABLE,
       Key: {
-        user_id: userId,
+        PK: `USER#${userId}`,
+        SK: `PROFILE#${userId}`,
       },
     });
 
@@ -38,7 +39,7 @@ export const handler = async (
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
         },
-        body: JSON.stringify({ error: "Post not found" }),
+        body: JSON.stringify({ error: "Profile not found" }),
       };
     }
 
@@ -51,7 +52,7 @@ export const handler = async (
       body: JSON.stringify(result.Item),
     };
   } catch (error) {
-    console.error("Error creating user profile:", error);
+    console.error("Error getting user profile:", error);
 
     return {
       statusCode: 500,

@@ -5,7 +5,7 @@ import { defaultProvider } from "@aws-sdk/credential-provider-node";
 
 const REQUIRED_SCOPE = process.env.REQUIRED_SCOPE;
 const OPENSEARCH_DOMAIN = process.env.OPENSEARCH_DOMAIN!;
-const INDEX_NAME = process.env.OPENSEARCH_INDEX!;
+const INDEX_NAME = process.env.SCHOOLS_INDEX!;
 const REGION = process.env.AWS_REGION || "us-east-1";
 
 const createSignedClient = async () => {
@@ -44,7 +44,7 @@ export const handler = async (
     const queryParams = event.queryStringParameters || {};
     const lat = parseFloat(queryParams.lat || "");
     const lon = parseFloat(queryParams.lon || "");
-    const radius = queryParams.radius || "25km";
+    const radius = queryParams.radius || "25mi";
 
     if (isNaN(lat) || isNaN(lon)) {
       return {
@@ -59,12 +59,25 @@ export const handler = async (
       index: INDEX_NAME,
       size: 50,
       body: {
+        _source: { excludes: ["geometry"] },
+        sort: [
+          {
+            _geo_distance: {
+              location: {
+                lat: lat,
+                lon: lon,
+              },
+              order: "asc",
+              unit: "mi",
+            },
+          },
+        ],
         query: {
           bool: {
             must: [{ match_all: {} }],
             filter: {
               geo_distance: {
-                distance: "10km",
+                distance: radius,
                 location: { lat, lon },
               },
             },
@@ -74,6 +87,7 @@ export const handler = async (
     });
 
     const hits = response.body.hits.hits.map((hit: any) => hit._source);
+    console.log("Hits:", hits);
 
     return {
       statusCode: 200,

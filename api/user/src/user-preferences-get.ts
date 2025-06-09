@@ -1,59 +1,66 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({});
-const ddbDocClient = DynamoDBDocumentClient.from(client);
-
-const TABLE_NAME = process.env.DYNAMODB_TABLE || "";
+const dynamoDb = DynamoDBDocumentClient.from(client);
+const PREFERENCES_TABLE = process.env.PREFERENCES_TABLE || "user_preferences";
 
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    console.log("Event:", event);
+    console.log("Received event:", JSON.stringify(event));
 
-    // const allowedOrigin = validateOrigin(event.headers.origin || "");
-    // const tokenPayload = decodeToken(event.headers.authorization || "");
+    const token = event.headers["Authorization"]?.split(" ")[1];
 
-    // const userId = tokenPayload.sub;
+    if (!token) {
+      console.error("Unauthorized: Missing token");
+      throw new Error("Unauthorized");
+    }
 
-    // const params = {
-    //   TableName: TABLE_NAME,
-    //   KeyConditionExpression: "PK = :pk",
-    //   ExpressionAttributeValues: {
-    //     ":pk": `USER#${userId}`,
-    //   },
-    // };
+    const userId = event.requestContext.authorizer?.user;
+    console.log("userId", userId);
 
-    // console.log("Querying DynamoDB with params:", params);
-    // const result = await ddbDocClient.send(new QueryCommand(params));
+    const params = new GetCommand({
+      TableName: PREFERENCES_TABLE,
+      Key: {
+        PK: `USER#${userId}`,
+        SK: `PREFERENCES#${userId}`,
+      },
+    });
+
+    const result = await dynamoDb.send(params);
+
+    if (!result.Item) {
+      return {
+        statusCode: 404,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "Preferences not found" }),
+      };
+    }
 
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET",
       },
-      body: JSON.stringify({
-        // preferences: result.Items || [],
-      }),
+      body: JSON.stringify(result.Item),
     };
   } catch (error) {
-    // Explicitly narrow the type of error
-    if (error instanceof Error) {
-      console.error("Error:", error.message);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: error.message }),
-      };
-    } else {
-      console.error("Unknown error:", error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "An unknown error occurred" }),
-      };
-    }
+    console.error("Error getting user preferences:", error);
+
+    return {
+      statusCode: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify({ error: "Failed to get user preferences" }),
+    };
   }
 };

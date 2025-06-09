@@ -109,7 +109,7 @@ resource "aws_lambda_function" "user_preferences_get_lambda" {
 
   environment {
     variables = {
-      TABLE_NAME = aws_dynamodb_table.preferences.name
+      PREFERENCES_TABLE = aws_dynamodb_table.preferences.name
     }
   }
 
@@ -205,7 +205,7 @@ resource "aws_lambda_function" "user_preferences_put_lambda" {
 
   environment {
     variables = {
-      TABLE_NAME = aws_dynamodb_table.preferences.name
+      PREFERENCES_TABLE = aws_dynamodb_table.preferences.name
     }
   }
 

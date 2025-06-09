@@ -5,7 +5,7 @@ import { defaultProvider } from "@aws-sdk/credential-provider-node";
 
 const REQUIRED_SCOPE = process.env.REQUIRED_SCOPE;
 const OPENSEARCH_DOMAIN = process.env.OPENSEARCH_DOMAIN!;
-const INDEX_NAME = process.env.OPENSEARCH_INDEX!;
+const INDEX_NAME = process.env.DISTRICTS_INDEX!;
 const REGION = process.env.AWS_REGION || "us-east-1";
 
 const createSignedClient = async () => {
@@ -38,13 +38,14 @@ export const handler = async (
 
     const scopes = (event.requestContext.authorizer?.scope || "").split(" ");
     const userId = event.requestContext.authorizer?.user;
+
     console.log("Scopes:", scopes);
     console.log("User ID:", userId);
 
     const queryParams = event.queryStringParameters || {};
     const lat = parseFloat(queryParams.lat || "");
     const lon = parseFloat(queryParams.lon || "");
-    const radius = queryParams.radius || "25km";
+    const radius = queryParams.radius || "25mi";
 
     if (isNaN(lat) || isNaN(lon)) {
       return {
@@ -61,13 +62,13 @@ export const handler = async (
       body: {
         _source: { excludes: ["geometry"] },
         query: {
-          bool: {
-            must: [{ match_all: {} }],
-            filter: {
-              geo_distance: {
-                distance: radius,
-                geometry: { lat, lon },
+          geo_shape: {
+            geometry: {
+              shape: {
+                type: "point",
+                coordinates: [lon, lat],
               },
+              relation: "intersects",
             },
           },
         },
@@ -75,6 +76,7 @@ export const handler = async (
     });
 
     const hits = response.body.hits.hits.map((hit: any) => hit._source);
+    console.log("Hits:", hits);
 
     return {
       statusCode: 200,

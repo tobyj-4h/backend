@@ -223,29 +223,31 @@ resource "aws_iam_role_policy_attachment" "media_delete_lambda_attach_policy" {
   policy_arn = aws_iam_policy.media_delete_lambda_policy.arn
 }
 
+
+
 ##################################################
 # API Gateway: Media Resource (`/media`)
 ##################################################
-resource "aws_api_gateway_resource" "media_resource" {
-  rest_api_id = aws_api_gateway_rest_api.media_api.id
-  parent_id   = aws_api_gateway_rest_api.media_api.root_resource_id
-  path_part   = "media"
-}
+# resource "aws_api_gateway_resource" "media_resource" {
+#   rest_api_id = aws_api_gateway_rest_api.media_api.id
+#   parent_id   = aws_api_gateway_rest_api.media_api.root_resource_id
+#   path_part   = "media"
+# }
 
 ##################################################
-# API Gateway: Upload Media (POST /media)
+# API Gateway: Upload Media (POST /)
 ##################################################
 resource "aws_api_gateway_method" "media_post_method" {
   rest_api_id   = aws_api_gateway_rest_api.media_api.id
-  resource_id   = aws_api_gateway_resource.media_resource.id
+  resource_id   = aws_api_gateway_rest_api.media_api.root_resource_id
   http_method   = "POST"
-  authorization = "NONE"
-  #   authorizer_id = aws_api_gateway_authorizer.custom_authorizer.id
+  authorization = "CUSTOM"
+  authorizer_id = aws_api_gateway_authorizer.media_authorizer.id
 }
 
 resource "aws_api_gateway_integration" "media_post_lambda_integration" {
   rest_api_id             = aws_api_gateway_rest_api.media_api.id
-  resource_id             = aws_api_gateway_resource.media_resource.id
+  resource_id             = aws_api_gateway_rest_api.media_api.root_resource_id
   http_method             = aws_api_gateway_method.media_post_method.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
@@ -253,23 +255,23 @@ resource "aws_api_gateway_integration" "media_post_lambda_integration" {
 }
 
 ##################################################
-# API Gateway: Media Item Resource (`/media/{mediaId}`)
+# API Gateway: Media Item Resource (`/{mediaId}`)
 ##################################################
 resource "aws_api_gateway_resource" "media_item_resource" {
   rest_api_id = aws_api_gateway_rest_api.media_api.id
-  parent_id   = aws_api_gateway_resource.media_resource.id
+  parent_id   = aws_api_gateway_rest_api.media_api.root_resource_id
   path_part   = "{mediaId}"
 }
 
 ##################################################
-# API Gateway: Retrieve Media (GET /media/{mediaId})
+# API Gateway: Retrieve Media (GET /{mediaId})
 ##################################################
 resource "aws_api_gateway_method" "media_get_method" {
   rest_api_id   = aws_api_gateway_rest_api.media_api.id
   resource_id   = aws_api_gateway_resource.media_item_resource.id
   http_method   = "GET"
-  authorization = "NONE"
-  #   authorizer_id = aws_api_gateway_authorizer.custom_authorizer.id
+  authorization = "CUSTOM"
+  authorizer_id = aws_api_gateway_authorizer.media_authorizer.id
 
   request_parameters = {
     "method.request.path.mediaId" = true
@@ -290,14 +292,14 @@ resource "aws_api_gateway_integration" "media_get_lambda_integration" {
 }
 
 ##################################################
-# API Gateway: Delete Media (DELETE /media/{mediaId})
+# API Gateway: Delete Media (DELETE /{mediaId})
 ##################################################
 resource "aws_api_gateway_method" "media_delete_method" {
   rest_api_id   = aws_api_gateway_rest_api.media_api.id
   resource_id   = aws_api_gateway_resource.media_item_resource.id
   http_method   = "DELETE"
-  authorization = "NONE"
-  #   authorizer_id = aws_api_gateway_authorizer.custom_authorizer.id
+  authorization = "CUSTOM"
+  authorizer_id = aws_api_gateway_authorizer.media_authorizer.id
 
   request_parameters = {
     "method.request.path.mediaId" = true
@@ -315,4 +317,82 @@ resource "aws_api_gateway_integration" "media_delete_lambda_integration" {
   request_parameters = {
     "integration.request.path.mediaId" = "method.request.path.mediaId"
   }
+}
+
+##################################################
+# LAMBDA: Media Authorizer Lambda Exec Role
+##################################################
+resource "aws_iam_role" "media_authorizer_lambda_exec" {
+  name = "media_authorizer_lambda_exec_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      }
+    }]
+  })
+}
+
+##################################################
+# LAMBDA: Media Authorizer Lambda
+##################################################
+resource "aws_lambda_function" "media_authorizer_lambda" {
+  function_name = "MediaAuthorizerFunction"
+  handler       = "media-authorizer.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.media_authorizer_lambda_exec.arn
+
+  filename         = "${path.module}/../dist/media-authorizer.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/media-authorizer.zip")
+
+  environment {
+    variables = {
+      LOG_LEVEL    = "INFO"
+      USER_POOL_ID = var.user_pool_id
+      REGION       = data.aws_region.current.name
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Media Authorizer Lambda Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "media_authorizer_lambda_log_group" {
+  name              = "/aws/lambda/${aws_lambda_function.media_authorizer_lambda.function_name}"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Media Authorizer Lambda Policy
+##################################################
+resource "aws_iam_policy" "media_authorizer_lambda_policy" {
+  name = "${aws_lambda_function.media_authorizer_lambda.function_name}Policy"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Effect = "Allow"
+      Resource = [
+        aws_cloudwatch_log_group.media_authorizer_lambda_log_group.arn,       # Restrict to specific log group
+        "${aws_cloudwatch_log_group.media_authorizer_lambda_log_group.arn}:*" # Allow access to log streams in the group
+      ]
+      }
+    ]
+  })
+}
+
+##################################################
+# LAMBDA: Media Authorizer Lambda Attach Policy
+##################################################
+resource "aws_iam_role_policy_attachment" "media_authorizer_lambda_attach_policy" {
+  role       = aws_iam_role.media_authorizer_lambda_exec.name
+  policy_arn = aws_iam_policy.media_authorizer_lambda_policy.arn
 }

@@ -43,17 +43,9 @@ export const handler = async (
     const apiGatewayArnPart = arnParts[5].split("/");
     const restApiId = apiGatewayArnPart[0];
     const stage = apiGatewayArnPart[1];
-    const region = arnParts[3];
-    const account = arnParts[4];
-
-    const allowedResources = [
-      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/districts`,
-      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/geocode`,
-      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/schools`,
-    ];
 
     // Create a resource pattern that covers all endpoints
-    // const resourceArn = `arn:aws:execute-api:${arnParts[3]}:${arnParts[4]}:${restApiId}/${stage}/*/*`;
+    const resourceArn = `arn:aws:execute-api:${arnParts[3]}:${arnParts[4]}:${restApiId}/${stage}/*/*`;
 
     // Get the principalId
     const principalId = decodedToken.sub || "user";
@@ -62,7 +54,7 @@ export const handler = async (
     const policy = generatePolicy(
       principalId,
       "Allow",
-      allowedResources,
+      resourceArn,
       scope,
       decodedToken["cognito:username"],
       decodedToken.email
@@ -154,7 +146,7 @@ const getPublicKey = async (kid: string): Promise<string> => {
  * Generates an IAM policy document.
  * @param principalId - The principal user ID
  * @param effect - "Allow" or "Deny"
- * @param resources - The resource ARNs
+ * @param resource - The resource ARN
  * @param scope -
  * @param username -
  * @param email -
@@ -163,20 +155,20 @@ const getPublicKey = async (kid: string): Promise<string> => {
 const generatePolicy = (
   principalId: string,
   effect: "Allow" | "Deny",
-  resources: string[],
+  resource: string,
   scope: string,
   username: string,
   email: string
 ): APIGatewayAuthorizerResult => {
   // Parse the methodArn to create a more permissive version if needed
-  //   const arnParts = resource.split(":");
-  //   const apiGatewayArnPart = arnParts[5].split("/");
-  //   const restApiId = apiGatewayArnPart[0];
-  //   const stage = apiGatewayArnPart[1];
-  //   const httpVerb = apiGatewayArnPart[2];
+  const arnParts = resource.split(":");
+  const apiGatewayArnPart = arnParts[5].split("/");
+  const restApiId = apiGatewayArnPart[0];
+  const stage = apiGatewayArnPart[1];
+  const httpVerb = apiGatewayArnPart[2];
 
   // Allow access to this endpoint
-  //   const resourceArn = `arn:aws:execute-api:${arnParts[3]}:${arnParts[4]}:${restApiId}/${stage}/${httpVerb}/${arnParts[5]}`;
+  const resourceArn = `arn:aws:execute-api:${arnParts[3]}:${arnParts[4]}:${restApiId}/${stage}/${httpVerb}/`;
 
   const policyDocument = {
     Version: "2012-10-17",
@@ -184,7 +176,7 @@ const generatePolicy = (
       {
         Action: "execute-api:Invoke",
         Effect: effect,
-        Resource: resources,
+        Resource: resourceArn,
       },
     ],
   };

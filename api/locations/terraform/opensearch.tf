@@ -20,7 +20,7 @@ resource "aws_opensearch_domain" "location" {
       {
         Effect = "Allow"
         Principal = {
-          AWS = aws_iam_role.location_lambda_role.arn
+          AWS = aws_iam_role.lambda_exec.arn
         }
         Action   = "es:*"
         Resource = "arn:aws:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/school-district-geo-index/*"
@@ -32,7 +32,7 @@ resource "aws_opensearch_domain" "location" {
         Resource  = "arn:aws:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/school-district-geo-index/*"
         Condition = {
           IpAddress = {
-            "aws:SourceIp" = "174.226.162.242/32"
+            "aws:SourceIp" = "74.102.120.248/32"
           }
         }
       }

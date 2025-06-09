@@ -1,6 +1,9 @@
 # Use the current AWS region
 data "aws_region" "current" {}
 
+# Use the current AWS account ID
+data "aws_caller_identity" "current" {}
+
 # Define REST API for Posts
 resource "aws_api_gateway_rest_api" "posts_api" {
   name        = "PostsAPI"

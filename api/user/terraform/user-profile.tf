@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 ##################################################
 # DynamoDB: UserProfile Table
 ##################################################
@@ -106,7 +108,8 @@ resource "aws_iam_policy" "user_profile_get_lambda_policy" {
         "dynamodb:Scan"
       ],
       Resource = "${aws_dynamodb_table.user_profile.arn}"
-    }]
+      }
+    ]
   })
 }
 
@@ -121,7 +124,7 @@ resource "aws_lambda_function" "user_profile_get_lambda" {
 
   environment {
     variables = {
-      TABLE_NAME = aws_dynamodb_table.user_profile.name
+      PROFILE_TABLE = aws_dynamodb_table.user_profile.name
     }
   }
 
@@ -198,9 +201,16 @@ resource "aws_iam_policy" "user_profile_put_lambda_policy" {
       ]
       },
       {
-        Effect   = "Allow",
-        Action   = "dynamodb:PutItem",
-        Resource = "${aws_dynamodb_table.user_profile.arn}"
+        Effect = "Allow",
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query"
+        ],
+        Resource = [
+          "${aws_dynamodb_table.user_profile.arn}",
+          "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/users"
+        ]
       }
     ]
   })

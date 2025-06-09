@@ -30,7 +30,7 @@
     "@aws-sdk/node-http-handler": "^3.370.0",
     "@aws-sdk/s3-request-presigner": "^3.758.0",
     "@aws-sdk/signature-v4": "^3.370.0",
-    "@opensearch-project/opensearch": "^3.4.0",
+    "@opensearch-project/opensearch": "^3.5.1",
     "aws4fetch": "^1.0.20",
     "axios": "^1.8.4",
     "jsonwebtoken": "^9.0.2",

@@ -39,12 +39,11 @@ module "user_api" {
 }
 
 module "media_api" {
-  source                        = "../api/media/terraform"
-  base_path                     = "media"
-  domain_name                   = var.domain_name
-  custom_authorizer_lambda_name = module.auth.custom_authorizer_lambda_name
-  custom_authorizer_lambda_arn  = module.auth.custom_authorizer_lambda_arn
-  environment                   = var.environment
+  source       = "../api/media/terraform"
+  base_path    = "media"
+  domain_name  = var.domain_name
+  user_pool_id = var.user_pool_id
+  environment  = var.environment
 }
 
 module "posts_api" {
@@ -64,9 +63,9 @@ module "post_interactions_api" {
   environment                   = var.environment
 }
 
-module "location_api" {
-  source       = "../api/location/terraform"
-  base_path    = "location"
+module "locations_api" {
+  source       = "../api/locations/terraform"
+  base_path    = "locations"
   domain_name  = var.domain_name
   user_pool_id = var.user_pool_id
   environment  = var.environment

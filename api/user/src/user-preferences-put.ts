@@ -3,76 +3,129 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({});
-const ddbDocClient = DynamoDBDocumentClient.from(client);
+const dynamoDb = DynamoDBDocumentClient.from(client);
+const PREFERENCES_TABLE = process.env.PREFERENCES_TABLE || "user_preferences";
 
-const TABLE_NAME = process.env.TABLE_NAME || "";
+interface UserPreferences {
+  PK: string;
+  SK: string;
+  user_id: string;
+  locations: any[];
+  schools: string[];
+  districts: string[];
+  topics: string[];
+  created_at: string;
+}
 
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    console.log("Event:", event);
+    console.log("Received event:", JSON.stringify(event));
 
-    // const allowedOrigin = validateOrigin(event.headers.origin || "");
-    // const tokenPayload = decodeToken(event.headers.authorization || "");
+    const token = event.headers["Authorization"]?.split(" ")[1];
 
-    // const userId = tokenPayload.sub;
+    if (!token) {
+      console.error("Unauthorized: Missing token");
+      throw new Error("Unauthorized");
+    }
 
-    // // Parse the request body
-    // const requestBody = JSON.parse(event.body || "{}");
-    // const { preferences } = requestBody;
+    const userId = event.requestContext.authorizer?.user;
+    console.log("userId", userId);
 
-    // if (!preferences || !Array.isArray(preferences)) {
-    //   return {
-    //     statusCode: 400,
-    //     body: JSON.stringify({
-    //       error: "Bad Request",
-    //       message: "The preferences array is required in the request body.",
-    //     }),
-    //   };
-    // }
+    const requestBody = JSON.parse(event.body || "{}");
 
-    // // Prepare the data for DynamoDB
-    // const items = preferences.map((pref: any) => ({
-    //   PK: `USER#${userId}`,
-    //   SK: pref.$type, // Assuming each preference has a unique $type
-    //   ...pref, // Spread the remaining fields into the item
-    //   created_at: new Date().toISOString(),
-    // }));
+    // Validate required fields
+    if (!Array.isArray(requestBody.locations)) {
+      return {
+        statusCode: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          error: "locations is required and must be an array",
+        }),
+      };
+    }
 
-    // // Batch insert the preferences into the DynamoDB table
-    // const putPromises = items.map((item) =>
-    //   ddbDocClient.send(
-    //     new PutCommand({
-    //       TableName: TABLE_NAME,
-    //       Item: item,
-    //     })
-    //   )
-    // );
-    // await Promise.all(putPromises);
+    if (!Array.isArray(requestBody.schools)) {
+      return {
+        statusCode: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          error: "schools is required and must be an array",
+        }),
+      };
+    }
+
+    if (!Array.isArray(requestBody.districts)) {
+      return {
+        statusCode: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          error: "districts is required and must be an array",
+        }),
+      };
+    }
+
+    if (!Array.isArray(requestBody.topics)) {
+      return {
+        statusCode: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          error: "topics is required and must be an array",
+        }),
+      };
+    }
+
+    const timestamp = new Date().toISOString();
+
+    const userPreferences: UserPreferences = {
+      PK: `USER#${userId}`,
+      SK: `PREFERENCES#${userId}`,
+      user_id: userId,
+      locations: requestBody.locations,
+      schools: requestBody.schools,
+      districts: requestBody.districts,
+      topics: requestBody.topics,
+      created_at: timestamp,
+    };
+
+    const params = new PutCommand({
+      TableName: PREFERENCES_TABLE,
+      Item: userPreferences,
+    });
+
+    await dynamoDb.send(params);
 
     return {
-      statusCode: 200,
+      statusCode: 201,
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify(userPreferences),
     };
   } catch (error) {
-    // Explicitly narrow the type of error
-    if (error instanceof Error) {
-      console.error("Error:", error.message);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: error.message }),
-      };
-    } else {
-      console.error("Unknown error:", error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "An unknown error occurred" }),
-      };
-    }
+    console.error("Error creating user preferences:", error);
+
+    return {
+      statusCode: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify({ error: "Failed to create user preferences" }),
+    };
   }
 };

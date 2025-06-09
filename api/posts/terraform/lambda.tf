@@ -1,3 +1,6 @@
+##################################################
+# LAMBDA: Posts API Lambda Exec Role
+##################################################
 resource "aws_iam_role" "posts_lambda_exec" {
   name = "posts_api_lambda_exec_role"
 
@@ -13,6 +16,9 @@ resource "aws_iam_role" "posts_lambda_exec" {
   })
 }
 
+##################################################
+# LAMBDA: Attach Lambda Policy to Posts Lambda Exec Role
+##################################################
 resource "aws_iam_role_policy_attachment" "posts_lambda_logs" {
   role       = aws_iam_role.posts_lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
@@ -23,18 +29,28 @@ resource "aws_iam_policy" "posts_dynamodb_access" {
   name = "PostsDynamoDBAccessPolicy"
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Action = [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:DeleteItem",
-        "dynamodb:Query",
-        "dynamodb:Scan"
-      ]
-      Effect   = "Allow"
-      Resource = aws_dynamodb_table.posts.arn
-    }]
+    Statement = [
+      {
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Effect   = "Allow"
+        Resource = aws_dynamodb_table.posts.arn
+      },
+      {
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:BatchGetItem"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/user_profile"
+      }
+    ]
   })
 }
 
@@ -57,8 +73,9 @@ resource "aws_lambda_function" "posts_get_items_lambda" {
 
   environment {
     variables = {
-      POSTS_TABLE    = aws_dynamodb_table.posts.id
-      REQUIRED_SCOPE = "https://api.dev.fourhorizonsed.com/beehive.post.read"
+      POSTS_TABLE        = aws_dynamodb_table.posts.id
+      USER_PROFILE_TABLE = "user_profile"
+      REQUIRED_SCOPE     = "https://api.dev.fourhorizonsed.com/beehive.post.read"
     }
   }
 }
@@ -127,8 +144,9 @@ resource "aws_lambda_function" "posts_create_item_lambda" {
 
   environment {
     variables = {
-      POSTS_TABLE    = aws_dynamodb_table.posts.id
-      REQUIRED_SCOPE = "https://api.dev.fourhorizonsed.com/beehive.post.write"
+      POSTS_TABLE        = aws_dynamodb_table.posts.id
+      USER_PROFILE_TABLE = "user_profile"
+      REQUIRED_SCOPE     = "https://api.dev.fourhorizonsed.com/beehive.post.write"
     }
   }
 }
@@ -196,8 +214,9 @@ resource "aws_lambda_function" "posts_get_item_lambda" {
 
   environment {
     variables = {
-      POSTS_TABLE    = aws_dynamodb_table.posts.id
-      REQUIRED_SCOPE = "https://api.dev.fourhorizonsed.com/beehive.post.read"
+      POSTS_TABLE        = aws_dynamodb_table.posts.id
+      USER_PROFILE_TABLE = "user_profile"
+      REQUIRED_SCOPE     = "https://api.dev.fourhorizonsed.com/beehive.post.read"
     }
   }
 }
