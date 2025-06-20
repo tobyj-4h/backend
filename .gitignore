@@ -88,3 +88,9 @@ operations/variable-scripts/variable.json
 
 # AWS Profile file
 .aws_profile
+
+# Firebase service account keys
+firebase-service-account*.json
+*-firebase-key.json
+firebase-credentials.json
+.env

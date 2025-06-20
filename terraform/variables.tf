@@ -12,10 +12,6 @@ variable "environment" {
   type = string
 }
 
-variable "user_pool_id" {
-  type = string
-}
-
 variable "school_district_query_sagemaker_ecr_image_uri" {
   description = "The URI of the ECR image for the SageMaker endpoint"
   type        = string

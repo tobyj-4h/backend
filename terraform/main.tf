@@ -25,50 +25,39 @@ module "api_gateway" {
   certificate_arn = module.acm.certificate_arn
 }
 
-module "auth" {
-  source       = "../api/auth/terraform"
-  user_pool_id = var.user_pool_id
-}
-
 module "user_api" {
-  source       = "../api/user/terraform"
-  base_path    = "user"
-  domain_name  = var.domain_name
-  user_pool_id = var.user_pool_id
-  environment  = var.environment
+  source      = "../api/user/terraform"
+  base_path   = "user"
+  domain_name = var.domain_name
+  environment = var.environment
 }
 
 module "media_api" {
-  source       = "../api/media/terraform"
-  base_path    = "media"
-  domain_name  = var.domain_name
-  user_pool_id = var.user_pool_id
-  environment  = var.environment
+  source      = "../api/media/terraform"
+  base_path   = "media"
+  domain_name = var.domain_name
+  environment = var.environment
 }
 
 module "posts_api" {
-  source       = "../api/posts/terraform"
-  base_path    = "posts"
-  domain_name  = var.domain_name
-  user_pool_id = var.user_pool_id
-  environment  = var.environment
+  source      = "../api/posts/terraform"
+  base_path   = "posts"
+  domain_name = var.domain_name
+  environment = var.environment
 }
 
 module "post_interactions_api" {
-  source                        = "../api/post-interactions/terraform"
-  base_path                     = "interactions"
-  domain_name                   = var.domain_name
-  custom_authorizer_lambda_name = module.auth.custom_authorizer_lambda_name
-  custom_authorizer_lambda_arn  = module.auth.custom_authorizer_lambda_arn
-  environment                   = var.environment
+  source      = "../api/post-interactions/terraform"
+  base_path   = "interactions"
+  domain_name = var.domain_name
+  environment = var.environment
 }
 
 module "locations_api" {
-  source       = "../api/locations/terraform"
-  base_path    = "locations"
-  domain_name  = var.domain_name
-  user_pool_id = var.user_pool_id
-  environment  = var.environment
+  source      = "../api/locations/terraform"
+  base_path   = "locations"
+  domain_name = var.domain_name
+  environment = var.environment
 }
 
 # module "schools_api" {

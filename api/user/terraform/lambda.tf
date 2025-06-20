@@ -45,9 +45,7 @@ resource "aws_lambda_function" "user_authorizer_lambda" {
 
   environment {
     variables = {
-      LOG_LEVEL    = "INFO"
-      USER_POOL_ID = var.user_pool_id
-      REGION       = data.aws_region.current.name
+      LOG_LEVEL = "INFO"
     }
   }
 }
@@ -84,10 +82,37 @@ resource "aws_iam_policy" "user_authorizer_lambda_policy" {
 }
 
 ##################################################
+# LAMBDA: User Authorizer Firebase Secrets Policy
+##################################################
+resource "aws_iam_policy" "user_authorizer_firebase_secrets_policy" {
+  name = "${aws_lambda_function.user_authorizer_lambda.function_name}FirebaseSecretsPolicy"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "secretsmanager:GetSecretValue"
+      ]
+      Effect = "Allow"
+      Resource = [
+        "arn:aws:secretsmanager:us-east-1:314146313891:secret:firebase/service-account-key*"
+      ]
+    }]
+  })
+}
+
+##################################################
 # LAMBDA: User Authorizer Lambda Attach Policy
 ##################################################
 resource "aws_iam_role_policy_attachment" "user_authorizer_lambda_attach_policy" {
   role       = aws_iam_role.user_authorizer_lambda_exec.name
   policy_arn = aws_iam_policy.user_authorizer_lambda_policy.arn
+}
+
+##################################################
+# LAMBDA: User Authorizer Firebase Secrets Policy Attachment
+##################################################
+resource "aws_iam_role_policy_attachment" "user_authorizer_firebase_secrets_attachment" {
+  role       = aws_iam_role.user_authorizer_lambda_exec.name
+  policy_arn = aws_iam_policy.user_authorizer_firebase_secrets_policy.arn
 }
 

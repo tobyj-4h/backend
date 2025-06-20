@@ -472,8 +472,6 @@ resource "aws_iam_role_policy_attachment" "view_post_lambda_attach_policy" {
   policy_arn = aws_iam_policy.view_post_lambda_policy.arn
 }
 
-
-
 ##################################################
 # LAMBDA: View Post
 ##################################################
@@ -512,4 +510,107 @@ resource "aws_lambda_permission" "allow_cloudwatch_flush_view_counts" {
   function_name = aws_lambda_function.flush_view_counts.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.flush_view_counts_schedule.arn
+}
+
+##################################################
+# LAMBDA: Post Interactions Authorizer Lambda Exec Role
+##################################################
+resource "aws_iam_role" "post_interactions_authorizer_lambda_exec" {
+  name = "post_interactions_authorizer_lambda_exec_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      }
+    }]
+  })
+}
+
+##################################################
+# LAMBDA: Post Interactions Authorizer Lambda
+##################################################
+resource "aws_lambda_function" "post_interactions_authorizer_lambda" {
+  function_name = "PostInteractionsAuthorizerFunction"
+  handler       = "post-interactions-authorizer.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.post_interactions_authorizer_lambda_exec.arn
+
+  filename         = "${path.module}/../dist/post-interactions-authorizer.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/post-interactions-authorizer.zip")
+
+  environment {
+    variables = {
+      LOG_LEVEL = "INFO"
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Post Interactions Authorizer Lambda Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "post_interactions_authorizer_lambda_log_group" {
+  name              = "/aws/lambda/${aws_lambda_function.post_interactions_authorizer_lambda.function_name}"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Post Interactions Authorizer Lambda Policy
+##################################################
+resource "aws_iam_policy" "post_interactions_authorizer_lambda_policy" {
+  name = "${aws_lambda_function.post_interactions_authorizer_lambda.function_name}Policy"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Effect = "Allow"
+      Resource = [
+        aws_cloudwatch_log_group.post_interactions_authorizer_lambda_log_group.arn,       # Restrict to specific log group
+        "${aws_cloudwatch_log_group.post_interactions_authorizer_lambda_log_group.arn}:*" # Allow access to log streams in the group
+      ]
+      }
+    ]
+  })
+}
+
+##################################################
+# LAMBDA: Post Interactions Authorizer Firebase Secrets Policy
+##################################################
+resource "aws_iam_policy" "post_interactions_authorizer_firebase_secrets_policy" {
+  name = "${aws_lambda_function.post_interactions_authorizer_lambda.function_name}FirebaseSecretsPolicy"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "secretsmanager:GetSecretValue"
+      ]
+      Effect = "Allow"
+      Resource = [
+        "arn:aws:secretsmanager:us-east-1:314146313891:secret:firebase/service-account-key*"
+      ]
+    }]
+  })
+}
+
+##################################################
+# LAMBDA: Post Interactions Authorizer Lambda Attach Policy
+##################################################
+resource "aws_iam_role_policy_attachment" "post_interactions_authorizer_lambda_attach_policy" {
+  role       = aws_iam_role.post_interactions_authorizer_lambda_exec.name
+  policy_arn = aws_iam_policy.post_interactions_authorizer_lambda_policy.arn
+}
+
+##################################################
+# LAMBDA: Post Interactions Authorizer Firebase Secrets Policy Attachment
+##################################################
+resource "aws_iam_role_policy_attachment" "post_interactions_authorizer_firebase_secrets_attachment" {
+  role       = aws_iam_role.post_interactions_authorizer_lambda_exec.name
+  policy_arn = aws_iam_policy.post_interactions_authorizer_firebase_secrets_policy.arn
 }

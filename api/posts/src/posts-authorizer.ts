@@ -2,17 +2,38 @@ import {
   APIGatewayTokenAuthorizerEvent,
   APIGatewayAuthorizerResult,
 } from "aws-lambda";
-import axios from "axios";
-import jwkToPem from "jwk-to-pem";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import * as admin from "firebase-admin";
+import { SecretsManager } from "@aws-sdk/client-secrets-manager";
 
-// Environment variables
-const REGION = process.env.AWS_REGION || "us-east-1";
-const USER_POOL_ID = process.env.USER_POOL_ID || "";
-const JWKS_URL = `https://cognito-idp.${REGION}.amazonaws.com/${USER_POOL_ID}/.well-known/jwks.json`;
+// Initialize Firebase Admin SDK
+let firebaseApp: admin.app.App;
 
-// Cache for public keys
-let cachedKeys: { [key: string]: string } = {};
+/**
+ * Initialize Firebase Admin SDK
+ */
+const initializeFirebase = async (): Promise<admin.app.App> => {
+  if (!firebaseApp) {
+    // Check if Firebase is already initialized
+    try {
+      firebaseApp = admin.app();
+    } catch (error) {
+      // Fetch service account key from Secrets Manager
+      const secretsManager = new SecretsManager({
+        region: process.env.AWS_REGION || "us-east-1",
+      });
+      const secretResponse = await secretsManager.getSecretValue({
+        SecretId: "firebase/service-account-key",
+      });
+
+      const serviceAccountKey = JSON.parse(secretResponse.SecretString || "{}");
+
+      firebaseApp = admin.initializeApp({
+        credential: admin.credential.cert(serviceAccountKey),
+      });
+    }
+  }
+  return firebaseApp;
+};
 
 /**
  * Lambda function handler
@@ -30,13 +51,9 @@ export const handler = async (
   }
 
   try {
-    // Verify token signature and expiration
-    const decodedToken = await verifyToken(token);
-    console.log("Decoded token:", decodedToken);
-
-    // Extract scopes from token
-    // const scopes = decodedToken.scope ? decodedToken.scope.split(" ") : [];
-    const scope = decodedToken.scope;
+    // Verify Firebase ID token
+    const decodedToken = await verifyFirebaseToken(token);
+    console.log("Decoded Firebase token:", decodedToken);
 
     // Parse the ARN to create a policy that covers all endpoints
     const arnParts = event.methodArn.split(":");
@@ -47,17 +64,17 @@ export const handler = async (
     // Create a resource pattern that covers all endpoints
     const resourceArn = `arn:aws:execute-api:${arnParts[3]}:${arnParts[4]}:${restApiId}/${stage}/*/*`;
 
-    // Get the principalId
-    const principalId = decodedToken.sub || "user";
+    // Get the principalId from Firebase UID
+    const principalId = decodedToken.uid || "user";
 
     // Generate a policy with the permissive resource pattern
     const policy = generatePolicy(
       principalId,
       "Allow",
       resourceArn,
-      scope,
-      decodedToken["cognito:username"],
-      decodedToken.email
+      decodedToken.email || "",
+      decodedToken.name || "",
+      decodedToken.email || ""
     );
 
     console.log("Generated policy:", JSON.stringify(policy));
@@ -66,99 +83,49 @@ export const handler = async (
     if (error instanceof Error) {
       console.error("Authorization error:", error.message);
     } else {
-      console.error("An unknown error occured.");
+      console.error("An unknown error occurred.");
     }
     throw new Error("Unauthorized");
   }
 };
 
 /**
- * Verifies and decodes a JWT token.
- * @param token - The JWT token
- * @returns Decoded JWT payload
+ * Verifies and decodes a Firebase ID token.
+ * @param idToken - The Firebase ID token
+ * @returns Decoded Firebase token claims
  */
-const verifyToken = async (token: string): Promise<JwtPayload> => {
-  const decodedHeader = jwt.decode(token, { complete: true });
-
-  console.log("decodedHeader", decodedHeader);
-  console.log("typeof decodedHeader", typeof decodedHeader);
-
-  if (!decodedHeader || typeof decodedHeader === "string") {
-    throw new Error("Invalid token: Unable to decode header");
-  }
-
-  const { kid } = decodedHeader.header;
-  if (!kid) {
-    throw new Error("Invalid token: Missing 'kid' in header");
-  }
-
-  const publicKey = await getPublicKey(kid);
-
+const verifyFirebaseToken = async (
+  idToken: string
+): Promise<admin.auth.DecodedIdToken> => {
   try {
-    return jwt.verify(token, publicKey, {
-      algorithms: ["RS256"],
-    }) as JwtPayload;
-  } catch (err) {
-    throw new Error("Invalid token: Signature verification failed");
-  }
-};
+    const app = await initializeFirebase();
+    const auth = app.auth();
 
-/**
- * Retrieves a public key for the given key ID (kid).
- * @param kid - Key ID from the token header
- * @returns Public key in PEM format
- */
-const getPublicKey = async (kid: string): Promise<string> => {
-  if (cachedKeys[kid]) {
-    console.log(`Cache hit for kid: ${kid}`);
-    return cachedKeys[kid];
-  }
-
-  try {
-    console.log(`Fetching JWKS from ${JWKS_URL}`);
-    const response = await axios.get(JWKS_URL);
-    const jwks = response.data.keys;
-
-    console.log(`JWKS fetched successfully: ${JSON.stringify(jwks)}`);
-
-    const key = jwks.find((key: any) => key.kid === kid);
-    if (!key) {
-      console.error(`Key with kid ${kid} not found in JWKS`);
-      throw new Error("Public key not found for the given 'kid'");
-    }
-
-    const pem = jwkToPem(key);
-    cachedKeys[kid] = pem;
-
-    console.log(`Public key for kid ${kid} converted and cached`);
-    return pem;
+    const decodedToken = await auth.verifyIdToken(idToken);
+    return decodedToken;
   } catch (error) {
-    if (error instanceof Error) {
-      console.error(`Failed to fetch or process JWKS: ${error.message}`);
-    } else {
-      console.error("Unknown error.");
-    }
-    throw new Error("Unable to retrieve public keys");
+    console.error("Firebase token verification failed:", error);
+    throw new Error("Invalid Firebase token");
   }
 };
 
 /**
  * Generates an IAM policy document.
- * @param principalId - The principal user ID
+ * @param principalId - The principal user ID (Firebase UID)
  * @param effect - "Allow" or "Deny"
  * @param resource - The resource ARN
- * @param scope -
- * @param username -
- * @param email -
+ * @param email - User email
+ * @param name - User name
+ * @param userEmail - User email (duplicate for compatibility)
  * @returns IAM policy document
  */
 const generatePolicy = (
   principalId: string,
   effect: "Allow" | "Deny",
   resource: string,
-  scope: string,
-  username: string,
-  email: string
+  email: string,
+  name: string,
+  userEmail: string
 ): APIGatewayAuthorizerResult => {
   // Parse the methodArn to create a more permissive version if needed
   const arnParts = resource.split(":");
@@ -186,9 +153,9 @@ const generatePolicy = (
     policyDocument,
     context: {
       user: principalId,
-      username: username,
+      username: name,
       email: email,
-      scope: scope,
+      uid: principalId,
     },
   };
 

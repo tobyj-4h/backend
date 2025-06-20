@@ -64,16 +64,16 @@ export const handler = async (
     console.log("scopes", scopes);
     console.log("userId", userId);
 
-    if (
-      REQUIRED_SCOPE &&
-      !scopes.includes(REQUIRED_SCOPE) &&
-      !scopes.includes("https://api.dev.fourhorizonsed.com/beehive.post.admin")
-    ) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ message: "Insufficient permissions" }),
-      };
-    }
+    // if (
+    //   REQUIRED_SCOPE &&
+    //   !scopes.includes(REQUIRED_SCOPE) &&
+    //   !scopes.includes("https://api.dev.fourhorizonsed.com/beehive.post.admin")
+    // ) {
+    //   return {
+    //     statusCode: 403,
+    //     body: JSON.stringify({ message: "Insufficient permissions" }),
+    //   };
+    // }
 
     const requestBody = JSON.parse(event.body || "{}");
 

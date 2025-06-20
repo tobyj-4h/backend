@@ -4,6 +4,7 @@ import {
   DynamoDBDocumentClient,
   ScanCommand,
   BatchGetCommand,
+  QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({});
@@ -24,6 +25,362 @@ interface PostWithUserInfo {
   user?: UserProfile;
 }
 
+interface QueryParams {
+  filter?: string;
+  page?: string;
+  pageSize?: string;
+  userId?: string;
+  search?: string;
+}
+
+interface PaginationInfo {
+  currentPage: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+interface PostsResponse {
+  posts: PostWithUserInfo[];
+  pagination: PaginationInfo;
+}
+
+// Helper function to calculate engagement score for "What's Hot" filtering
+const calculateEngagementScore = (post: any): number => {
+  const views = post.view_count || 0;
+  const reactions = post.reaction_count || 0;
+  const comments = post.comment_count || 0;
+  const favorites = post.favorite_count || 0;
+
+  // Weight different engagement types
+  return views * 0.1 + reactions * 2 + comments * 3 + favorites * 2;
+};
+
+// Helper function to get posts based on filter type
+const getPostsByFilter = async (
+  filter: string,
+  page: number,
+  pageSize: number,
+  userId?: string
+): Promise<any[]> => {
+  const offset = page * pageSize;
+
+  switch (filter.toLowerCase()) {
+    case "discover":
+      // Discover: Show posts from users the current user doesn't follow
+      // This helps users find new content and users to follow
+      if (!userId) {
+        // If no user ID, fall back to latest posts
+        return await getLatestPosts(offset, pageSize);
+      }
+
+      // Get list of users the current user follows
+      const following = await getUserFollowing(userId);
+
+      // Get posts excluding followed users
+      return await getPostsExcludingUsers(following, offset, pageSize);
+
+    case "following":
+      // Following: Show posts only from users the current user follows
+      if (!userId) {
+        return [];
+      }
+
+      // Get list of users the current user follows
+      const followingUsers = await getUserFollowing(userId);
+
+      // Get posts from followed users only
+      return await getPostsFromUsers(followingUsers, offset, pageSize);
+
+    case "what's hot":
+    case "whats hot":
+    case "trending":
+      // What's Hot: Sort posts by engagement score (views, reactions, comments, favorites)
+      // This shows the most engaging content across the platform
+      const hotParams = new ScanCommand({
+        TableName: POSTS_TABLE,
+        FilterExpression: "is_deleted = :isDeleted",
+        ExpressionAttributeValues: {
+          ":isDeleted": false,
+        },
+      });
+
+      const hotResult = await dynamoDb.send(hotParams);
+      const hotPosts = hotResult.Items || [];
+
+      // Sort by engagement score (calculated on the fly)
+      const postsWithScore = hotPosts.map((post) => ({
+        ...post,
+        engagementScore: calculateEngagementScore(post),
+      }));
+
+      postsWithScore.sort((a, b) => b.engagementScore - a.engagementScore);
+
+      // Apply pagination
+      return postsWithScore.slice(offset, offset + pageSize);
+
+    case "popular in my groups":
+    case "groups":
+      // Popular in my Groups: Show posts from groups the user is a member of
+      // Sort by engagement within those groups
+      if (!userId) {
+        return [];
+      }
+
+      // Get list of groups the user is a member of
+      const groups = await getUserGroups(userId);
+
+      // Get posts from user's groups
+      return await getPostsFromGroups(groups, offset, pageSize);
+
+    case "latest":
+    case "recent":
+    default:
+      // Latest: Sort posts by timestamp (newest first)
+      // This is the default fallback
+      return await getLatestPosts(offset, pageSize);
+  }
+};
+
+// Helper function to get latest posts (extracted for reuse)
+const getLatestPosts = async (
+  offset: number,
+  pageSize: number
+): Promise<any[]> => {
+  const latestParams = new ScanCommand({
+    TableName: POSTS_TABLE,
+    FilterExpression: "is_deleted = :isDeleted",
+    ExpressionAttributeValues: {
+      ":isDeleted": false,
+    },
+  });
+
+  const latestResult = await dynamoDb.send(latestParams);
+  const latestPosts = latestResult.Items || [];
+
+  // Sort by timestamp (newest first)
+  latestPosts.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  // Apply pagination
+  return latestPosts.slice(offset, offset + pageSize);
+};
+
+// Helper function to get user's following list
+const getUserFollowing = async (userId: string): Promise<string[]> => {
+  try {
+    // For now, we'll make a direct DynamoDB query to get following list
+    // In the future, this could be a call to the user associations API
+    const queryParams = new QueryCommand({
+      TableName: "user_associations",
+      KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
+      ExpressionAttributeValues: {
+        ":pk": `USER#${userId}`,
+        ":sk": "FOLLOWING#",
+      },
+    });
+
+    const result = await dynamoDb.send(queryParams);
+    const associations = result.Items || [];
+
+    // Extract user IDs from the SK
+    const following = associations.map((association: any) => {
+      return association.SK.replace("FOLLOWING#", "");
+    });
+
+    console.log("User following list:", following);
+    return following;
+  } catch (error) {
+    console.error("Error getting user following list:", error);
+    return [];
+  }
+};
+
+// Helper function to get user's group memberships
+const getUserGroups = async (userId: string): Promise<string[]> => {
+  try {
+    // For now, we'll make a direct DynamoDB query to get group memberships
+    // In the future, this could be a call to the user associations API
+    const queryParams = new QueryCommand({
+      TableName: "user_associations",
+      KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
+      ExpressionAttributeValues: {
+        ":pk": `USER#${userId}`,
+        ":sk": "GROUP#",
+      },
+    });
+
+    const result = await dynamoDb.send(queryParams);
+    const associations = result.Items || [];
+
+    // Extract group IDs from the SK
+    const groups = associations.map((association: any) => {
+      return association.SK.replace("GROUP#", "");
+    });
+
+    console.log("User group memberships:", groups);
+    return groups;
+  } catch (error) {
+    console.error("Error getting user group memberships:", error);
+    return [];
+  }
+};
+
+// Helper function to get posts excluding specific users
+const getPostsExcludingUsers = async (
+  excludeUserIds: string[],
+  offset: number,
+  pageSize: number
+): Promise<any[]> => {
+  const scanParams = new ScanCommand({
+    TableName: POSTS_TABLE,
+    FilterExpression:
+      "is_deleted = :isDeleted AND (NOT user_id IN (:excludeUsers))",
+    ExpressionAttributeValues: {
+      ":isDeleted": false,
+      ":excludeUsers": excludeUserIds,
+    },
+  });
+
+  const result = await dynamoDb.send(scanParams);
+  const posts = result.Items || [];
+
+  // Sort by engagement score for discover
+  const postsWithScore = posts.map((post) => ({
+    ...post,
+    engagementScore: calculateEngagementScore(post),
+  }));
+
+  postsWithScore.sort((a, b) => b.engagementScore - a.engagementScore);
+
+  // Apply pagination
+  return postsWithScore.slice(offset, offset + pageSize);
+};
+
+// Helper function to get posts from specific users
+const getPostsFromUsers = async (
+  userIds: string[],
+  offset: number,
+  pageSize: number
+): Promise<any[]> => {
+  if (userIds.length === 0) {
+    return [];
+  }
+
+  // For small lists, we can use IN clause
+  if (userIds.length <= 100) {
+    const scanParams = new ScanCommand({
+      TableName: POSTS_TABLE,
+      FilterExpression: "is_deleted = :isDeleted AND user_id IN (:userIds)",
+      ExpressionAttributeValues: {
+        ":isDeleted": false,
+        ":userIds": userIds,
+      },
+    });
+
+    const result = await dynamoDb.send(scanParams);
+    const posts = result.Items || [];
+
+    // Sort by timestamp (newest first)
+    posts.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    // Apply pagination
+    return posts.slice(offset, offset + pageSize);
+  } else {
+    // For large lists, we need to batch the queries
+    // This is a simplified implementation - in production you'd want to optimize this
+    const allPosts: any[] = [];
+
+    for (let i = 0; i < userIds.length; i += 100) {
+      const batch = userIds.slice(i, i + 100);
+      const scanParams = new ScanCommand({
+        TableName: POSTS_TABLE,
+        FilterExpression: "is_deleted = :isDeleted AND user_id IN (:userIds)",
+        ExpressionAttributeValues: {
+          ":isDeleted": false,
+          ":userIds": batch,
+        },
+      });
+
+      const result = await dynamoDb.send(scanParams);
+      if (result.Items) {
+        allPosts.push(...result.Items);
+      }
+    }
+
+    // Sort by timestamp (newest first)
+    allPosts.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    // Apply pagination
+    return allPosts.slice(offset, offset + pageSize);
+  }
+};
+
+// Helper function to get posts from specific groups
+const getPostsFromGroups = async (
+  groupIds: string[],
+  offset: number,
+  pageSize: number
+): Promise<any[]> => {
+  if (groupIds.length === 0) {
+    return [];
+  }
+
+  // For now, we'll scan and filter by group_id
+  // In the future, you might want to add a GSI for group_id
+  const scanParams = new ScanCommand({
+    TableName: POSTS_TABLE,
+    FilterExpression: "is_deleted = :isDeleted AND group_id IN (:groupIds)",
+    ExpressionAttributeValues: {
+      ":isDeleted": false,
+      ":groupIds": groupIds,
+    },
+  });
+
+  const result = await dynamoDb.send(scanParams);
+  const posts = result.Items || [];
+
+  // Sort by engagement score within groups
+  const postsWithScore = posts.map((post) => ({
+    ...post,
+    engagementScore: calculateEngagementScore(post),
+  }));
+
+  postsWithScore.sort((a, b) => b.engagementScore - a.engagementScore);
+
+  // Apply pagination
+  return postsWithScore.slice(offset, offset + pageSize);
+};
+
+// Helper function to get total count for pagination
+const getTotalCount = async (
+  filter: string,
+  userId?: string
+): Promise<number> => {
+  // For now, we'll get the total count of non-deleted posts
+  // In the future, this should be filtered based on the filter type
+  const scanParams = new ScanCommand({
+    TableName: POSTS_TABLE,
+    FilterExpression: "is_deleted = :isDeleted",
+    ExpressionAttributeValues: {
+      ":isDeleted": false,
+    },
+    Select: "COUNT",
+  });
+
+  const result = await dynamoDb.send(scanParams);
+  return result.Count || 0;
+};
+
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
@@ -40,38 +397,52 @@ export const handler = async (
     // Extract scopes and user info from authorizer context
     const scopes = (event.requestContext.authorizer?.scope || "").split(" ");
     const userId = event.requestContext.authorizer?.user;
-    // const claims = JSON.parse(event.requestContext.authorizer?.claims);
-    // const username = claims?.username;
 
     console.log("scopes", scopes);
     console.log("userId", userId);
-    // console.log("claims", claims);
-    // console.log("username", username);
 
-    if (
-      REQUIRED_SCOPE &&
-      !scopes.includes(REQUIRED_SCOPE) &&
-      !scopes.includes("https://api.dev.fourhorizonsed.com/beehive.post.admin")
-    ) {
+    // Parse query parameters
+    const queryParams: QueryParams = event.queryStringParameters || {};
+    const filter = queryParams.filter || "latest";
+    const page = parseInt(queryParams.page || "0", 10);
+    const pageSize = parseInt(queryParams.pageSize || "20", 10);
+    const searchQuery = queryParams.search;
+
+    console.log("Received query parameters:", {
+      filter,
+      page,
+      pageSize,
+      search: searchQuery,
+    });
+
+    // Validate pagination parameters
+    if (page < 0) {
       return {
-        statusCode: 403,
-        body: JSON.stringify({ message: "Insufficient permissions" }),
+        statusCode: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "Page must be 0 or greater" }),
       };
     }
 
-    const queryParams = event.queryStringParameters || {};
+    if (pageSize < 1 || pageSize > 100) {
+      return {
+        statusCode: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "Page size must be between 1 and 100" }),
+      };
+    }
 
-    // Placeholder for future filtering logic
-    console.log("Received query parameters:", queryParams);
+    // Get posts based on filter
+    const posts = await getPostsByFilter(filter, page, pageSize, userId);
 
-    const params = new ScanCommand({
-      TableName: POSTS_TABLE,
-    });
-
-    const result = await dynamoDb.send(params);
-
-    // Filter out deleted posts
-    const posts = result.Items?.filter((post) => !post.is_deleted) || [];
+    // Get total count for pagination info
+    const totalCount = await getTotalCount(filter, userId);
 
     // Get unique user IDs from posts
     const userIds = [
@@ -121,13 +492,31 @@ export const handler = async (
       user: post.user_id ? userProfiles[post.user_id] : undefined,
     }));
 
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalCount / pageSize);
+    const pagination: PaginationInfo = {
+      currentPage: page,
+      pageSize: pageSize,
+      totalItems: totalCount,
+      totalPages: totalPages,
+      hasNextPage: page < totalPages - 1,
+      hasPreviousPage: page > 0,
+    };
+
+    const response: PostsResponse = {
+      posts: postsWithUserInfo,
+      pagination: pagination,
+    };
+
+    console.log("response", response);
+
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify(postsWithUserInfo),
+      body: JSON.stringify(response),
     };
   } catch (error) {
     console.error("Error retrieving posts:", error);

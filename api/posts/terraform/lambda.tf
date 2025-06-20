@@ -49,6 +49,15 @@ resource "aws_iam_policy" "posts_dynamodb_access" {
         ]
         Effect   = "Allow"
         Resource = "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/user_profile"
+      },
+      {
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/user_associations"
       }
     ]
   })
@@ -441,9 +450,7 @@ resource "aws_lambda_function" "posts_authorizer_lambda" {
 
   environment {
     variables = {
-      LOG_LEVEL    = "INFO"
-      USER_POOL_ID = var.user_pool_id
-      REGION       = data.aws_region.current.name
+      LOG_LEVEL = "INFO"
     }
   }
 }
@@ -480,9 +487,36 @@ resource "aws_iam_policy" "posts_authorizer_lambda_policy" {
 }
 
 ##################################################
+# LAMBDA: Posts Authorizer Firebase Secrets Policy
+##################################################
+resource "aws_iam_policy" "posts_authorizer_firebase_secrets_policy" {
+  name = "${aws_lambda_function.posts_authorizer_lambda.function_name}FirebaseSecretsPolicy"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "secretsmanager:GetSecretValue"
+      ]
+      Effect = "Allow"
+      Resource = [
+        "arn:aws:secretsmanager:us-east-1:314146313891:secret:firebase/service-account-key*"
+      ]
+    }]
+  })
+}
+
+##################################################
 # LAMBDA: Posts Authorizer Lambda Attach Policy
 ##################################################
 resource "aws_iam_role_policy_attachment" "posts_authorizer_lambda_attach_policy" {
   role       = aws_iam_role.posts_authorizer_lambda_exec.name
   policy_arn = aws_iam_policy.posts_authorizer_lambda_policy.arn
+}
+
+##################################################
+# LAMBDA: Posts Authorizer Firebase Secrets Policy Attachment
+##################################################
+resource "aws_iam_role_policy_attachment" "posts_authorizer_firebase_secrets_attachment" {
+  role       = aws_iam_role.posts_authorizer_lambda_exec.name
+  policy_arn = aws_iam_policy.posts_authorizer_firebase_secrets_policy.arn
 }

@@ -24,16 +24,16 @@ export const handler = async (
   console.log("claims", claims);
   console.log("username", username);
 
-  if (
-    REQUIRED_SCOPE &&
-    !scopes.includes(REQUIRED_SCOPE) &&
-    !scopes.includes("admin")
-  ) {
-    return {
-      statusCode: 403,
-      body: JSON.stringify({ message: "Insufficient permissions" }),
-    };
-  }
+  // if (
+  //   REQUIRED_SCOPE &&
+  //   !scopes.includes(REQUIRED_SCOPE) &&
+  //   !scopes.includes("admin")
+  // ) {
+  //   return {
+  //     statusCode: 403,
+  //     body: JSON.stringify({ message: "Insufficient permissions" }),
+  //   };
+  // }
 
   const postId = event.pathParameters?.post_id;
 

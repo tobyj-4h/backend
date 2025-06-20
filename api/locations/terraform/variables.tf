@@ -10,10 +10,6 @@ variable "environment" {
   type = string
 }
 
-variable "user_pool_id" {
-  type = string
-}
-
 variable "lambda_runtime" {
   type    = string
   default = "nodejs20.x"

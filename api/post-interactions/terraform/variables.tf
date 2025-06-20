@@ -9,11 +9,3 @@ variable "base_path" {
 variable "environment" {
   type = string
 }
-
-variable "custom_authorizer_lambda_name" {
-  type = string
-}
-
-variable "custom_authorizer_lambda_arn" {
-  type = string
-}

@@ -9,7 +9,3 @@ variable "base_path" {
 variable "environment" {
   type = string
 }
-
-variable "user_pool_id" {
-  type = string
-}

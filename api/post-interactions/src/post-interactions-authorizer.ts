@@ -60,9 +60,18 @@ export const handler = async (
     const apiGatewayArnPart = arnParts[5].split("/");
     const restApiId = apiGatewayArnPart[0];
     const stage = apiGatewayArnPart[1];
+    const region = arnParts[3];
+    const account = arnParts[4];
 
-    // Create a resource pattern that covers all endpoints
-    const resourceArn = `arn:aws:execute-api:${arnParts[3]}:${arnParts[4]}:${restApiId}/${stage}/*/*`;
+    const allowedResources = [
+      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/comment`,
+      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/favorite`,
+      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/unfavorite`,
+      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/react`,
+      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/remove-reaction`,
+      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/view`,
+      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/flush-view-counts`,
+    ];
 
     // Get the principalId from Firebase UID
     const principalId = decodedToken.uid || "user";
@@ -71,7 +80,7 @@ export const handler = async (
     const policy = generatePolicy(
       principalId,
       "Allow",
-      resourceArn,
+      allowedResources,
       decodedToken.email || "",
       decodedToken.name || "",
       decodedToken.email || ""
@@ -113,7 +122,7 @@ const verifyFirebaseToken = async (
  * Generates an IAM policy document.
  * @param principalId - The principal user ID (Firebase UID)
  * @param effect - "Allow" or "Deny"
- * @param resource - The resource ARN
+ * @param resources - The resource ARNs
  * @param email - User email
  * @param name - User name
  * @param userEmail - User email (duplicate for compatibility)
@@ -122,28 +131,18 @@ const verifyFirebaseToken = async (
 const generatePolicy = (
   principalId: string,
   effect: "Allow" | "Deny",
-  resource: string,
+  resources: string[],
   email: string,
   name: string,
   userEmail: string
 ): APIGatewayAuthorizerResult => {
-  // Parse the methodArn to create a more permissive version if needed
-  const arnParts = resource.split(":");
-  const apiGatewayArnPart = arnParts[5].split("/");
-  const restApiId = apiGatewayArnPart[0];
-  const stage = apiGatewayArnPart[1];
-  const httpVerb = apiGatewayArnPart[2];
-
-  // Allow access to this endpoint
-  const resourceArn = `arn:aws:execute-api:${arnParts[3]}:${arnParts[4]}:${restApiId}/${stage}/${httpVerb}/`;
-
   const policyDocument = {
     Version: "2012-10-17",
     Statement: [
       {
         Action: "execute-api:Invoke",
         Effect: effect,
-        Resource: resourceArn,
+        Resource: resources,
       },
     ],
   };

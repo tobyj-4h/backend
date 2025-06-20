@@ -34,15 +34,13 @@ resource "aws_lambda_function" "locations_authorizer_lambda" {
 
   environment {
     variables = {
-      LOG_LEVEL    = "INFO"
-      USER_POOL_ID = var.user_pool_id
-      REGION       = data.aws_region.current.name
+      LOG_LEVEL = "INFO"
     }
   }
 }
 
 ##################################################
-# LAMBDA: Locations Authorizer Permission
+# LAMBDA: Locations Authorizer Lambda Permission
 ##################################################
 resource "aws_lambda_permission" "allow_apigw_invoke_locations_authorizer" {
   statement_id  = "AllowAPIGatewayInvoke"
@@ -89,6 +87,33 @@ resource "aws_iam_policy" "locations_authorizer_lambda_policy" {
 resource "aws_iam_role_policy_attachment" "locations_authorizer_lambda_attach_policy" {
   role       = aws_iam_role.locations_authorizer_lambda_exec.name
   policy_arn = aws_iam_policy.locations_authorizer_lambda_policy.arn
+}
+
+##################################################
+# LAMBDA: Locations Authorizer Firebase Secrets Policy
+##################################################
+resource "aws_iam_policy" "locations_authorizer_firebase_secrets_policy" {
+  name = "${aws_lambda_function.locations_authorizer_lambda.function_name}FirebaseSecretsPolicy"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "secretsmanager:GetSecretValue"
+      ]
+      Effect = "Allow"
+      Resource = [
+        "arn:aws:secretsmanager:us-east-1:314146313891:secret:firebase/service-account-key*"
+      ]
+    }]
+  })
+}
+
+##################################################
+# LAMBDA: Locations Authorizer Firebase Secrets Policy Attachment
+##################################################
+resource "aws_iam_role_policy_attachment" "locations_authorizer_firebase_secrets_attachment" {
+  role       = aws_iam_role.locations_authorizer_lambda_exec.name
+  policy_arn = aws_iam_policy.locations_authorizer_firebase_secrets_policy.arn
 }
 
 # Define Custom Authorizer for API Gateway
