@@ -40,7 +40,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({
@@ -53,7 +53,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({
@@ -66,7 +66,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({
@@ -79,7 +79,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({
@@ -111,7 +111,7 @@ export const handler = async (
     return {
       statusCode: 201,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify(userPreferences),
@@ -122,7 +122,7 @@ export const handler = async (
     return {
       statusCode: 500,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({ error: "Failed to create user preferences" }),

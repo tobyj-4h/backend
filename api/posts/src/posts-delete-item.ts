@@ -42,7 +42,7 @@ export const handler = async (
     return {
       statusCode: 400,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({ error: "Post ID is required" }),
@@ -67,7 +67,7 @@ export const handler = async (
       return {
         statusCode: 404,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({ error: "Post not found" }),
@@ -78,7 +78,7 @@ export const handler = async (
     return {
       statusCode: 204, // No content response for successful delete
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({ message: "Post deleted successfully" }),
@@ -89,7 +89,7 @@ export const handler = async (
     return {
       statusCode: 500,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({

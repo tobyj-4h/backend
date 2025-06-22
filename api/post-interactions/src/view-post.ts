@@ -1,5 +1,9 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
+import {
+  DynamoDBClient,
+  PutItemCommand,
+  UpdateItemCommand,
+} from "@aws-sdk/client-dynamodb";
 import { ulid } from "ulid";
 
 const dynamoDb = new DynamoDBClient({
@@ -7,9 +11,18 @@ const dynamoDb = new DynamoDBClient({
 });
 // const EVENTS_TABLE = process.env.EVENTS_TABLE || "post_events";
 const VIEWS_TABLE = process.env.VIEWS_TABLE || "post_views";
+const VIEW_COUNTERS_TABLE =
+  process.env.VIEW_COUNTERS_TABLE || "post_view_counters";
 
 const response = (statusCode: number, body?: any): APIGatewayProxyResult => ({
   statusCode,
+  headers: {
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers":
+      "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+  },
   body: JSON.stringify(body),
 });
 
@@ -17,14 +30,21 @@ export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    const userId =
-      event.requestContext.authorizer?.claims?.sub || "unknown-user";
+    // Extract user ID from Firebase authorizer
+    const userId = event.requestContext.authorizer?.user;
     const { post_id } = event.pathParameters || {};
+
     if (!post_id) {
       return response(400, { message: "post_id is required" });
     }
 
-    const eventId = `evt_${ulid()}`;
+    if (!userId) {
+      return response(401, { message: "Unauthorized" });
+    }
+
+    // Convert post_id to uppercase for DynamoDB consistency
+    const normalizedPostId = post_id.toUpperCase();
+
     const timestamp = Date.now();
 
     // Store raw view event in post_views table
@@ -32,29 +52,34 @@ export const handler = async (
       new PutItemCommand({
         TableName: VIEWS_TABLE,
         Item: {
-          post_id: { S: post_id },
+          post_id: { S: normalizedPostId },
           timestamp: { N: timestamp.toString() },
           user_id: { S: userId },
         },
       })
     );
 
-    // // Store view event in post_events table
-    // await dynamoDb.send(
-    //   new PutItemCommand({
-    //     TableName: EVENTS_TABLE,
-    //     Item: {
-    //       post_id: { S: post_id },
-    //       event_id: { S: eventId },
-    //       user_id: { S: userId },
-    //       event_type: { S: "view" },
-    //       event_value: { NULL: true },
-    //       timestamp: { S: new Date(timestamp).toISOString() },
-    //     },
-    //   })
-    // );
+    // Update view counter atomically
+    await dynamoDb.send(
+      new UpdateItemCommand({
+        TableName: VIEW_COUNTERS_TABLE,
+        Key: {
+          post_id: { S: normalizedPostId },
+        },
+        UpdateExpression:
+          "SET view_count = if_not_exists(view_count, :zero) + :inc",
+        ExpressionAttributeValues: {
+          ":inc": { N: "1" },
+          ":zero": { N: "0" },
+        },
+      })
+    );
 
-    return response(201, { message: "View recorded successfully" });
+    return response(201, {
+      post_id: normalizedPostId,
+      user_id: userId,
+      timestamp: new Date(timestamp).toISOString(),
+    });
   } catch (error) {
     console.error("Error recording view:", error);
     return response(500, { message: "Internal server error" });

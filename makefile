@@ -92,7 +92,7 @@ terraform-plan: auth
 terraform-apply: auth
 	@AWS_PROFILE=$$(cat $(PROFILE_FILE)); \
 	echo "Running Terraform apply with profile: $$AWS_PROFILE"; \
-	cd $(TF_DIR) && AWS_PROFILE=$$AWS_PROFILE terraform apply -var-file=../terraform.tfvars || { \
+	cd $(TF_DIR) && AWS_PROFILE=$$AWS_PROFILE terraform apply -var-file=../terraform.tfvars -auto-approve || { \
 		echo "❌ Terraform apply failed. This might be due to:"; \
 		echo "   - Expired AWS SSO session"; \
 		echo "   - Missing or invalid credentials"; \

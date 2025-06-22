@@ -35,12 +35,24 @@ resource "aws_dynamodb_table" "post_reactions" {
   }
 
   attribute {
+    name = "user_id"
+    type = "S"
+  }
+
+  attribute {
     name = "reaction"
     type = "S"
   }
 
   hash_key  = "post_id"
-  range_key = "reaction"
+  range_key = "user_id"
+
+  global_secondary_index {
+    name            = "user_reaction_index"
+    hash_key        = "user_id"
+    range_key       = "reaction"
+    projection_type = "ALL"
+  }
 
   ttl {
     attribute_name = "ttl"
@@ -66,8 +78,20 @@ resource "aws_dynamodb_table" "post_comments" {
     type = "S"
   }
 
+  attribute {
+    name = "user_id"
+    type = "S"
+  }
+
   hash_key  = "post_id"
   range_key = "comment_id"
+
+  global_secondary_index {
+    name            = "user_comments_index"
+    hash_key        = "user_id"
+    range_key       = "comment_id"
+    projection_type = "ALL"
+  }
 
   ttl {
     attribute_name = "ttl"
@@ -159,6 +183,45 @@ resource "aws_dynamodb_table" "post_views" {
     hash_key        = "user_id"
     range_key       = "timestamp"
     projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+}
+
+resource "aws_dynamodb_table" "comment_reactions" {
+  name         = "comment_reactions"
+  billing_mode = "PAY_PER_REQUEST"
+
+  attribute {
+    name = "comment_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "user_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "reaction"
+    type = "S"
+  }
+
+  hash_key  = "comment_id"
+  range_key = "user_id"
+
+  global_secondary_index {
+    name            = "user_reaction_index"
+    hash_key        = "user_id"
+    range_key       = "reaction"
+    projection_type = "ALL"
+  }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
   }
 
   point_in_time_recovery {

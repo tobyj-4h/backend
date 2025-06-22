@@ -19,7 +19,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({ error: "Handle is required" }),
@@ -45,7 +45,7 @@ export const handler = async (
       return {
         statusCode: 200, // Handle exists
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({ available: false }),
@@ -56,7 +56,7 @@ export const handler = async (
     return {
       statusCode: 404, // Handle does not exist (available)
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({ available: true }),
@@ -67,7 +67,7 @@ export const handler = async (
     return {
       statusCode: 500,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({ error: "Failed to check handle uniqueness" }),

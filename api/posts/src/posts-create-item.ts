@@ -81,7 +81,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({ error: "Content is required" }),
@@ -145,7 +145,7 @@ export const handler = async (
     return {
       statusCode: 201,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify(postWithUserInfo),
@@ -156,7 +156,7 @@ export const handler = async (
     return {
       statusCode: 500,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({ error: "Failed to create post" }),

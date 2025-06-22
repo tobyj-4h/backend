@@ -1,5 +1,6 @@
 # Use the current AWS region
 data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
 
 # Define REST API for Post Interactions
 resource "aws_api_gateway_rest_api" "interactions_api" {
@@ -22,14 +23,40 @@ resource "aws_api_gateway_deployment" "interactions_api_deployment" {
       aws_api_gateway_resource.post_resource,
       aws_api_gateway_resource.post_reactions_resource,
       aws_api_gateway_resource.post_comments_resource,
+      aws_api_gateway_resource.individual_comment_resource,
+      aws_api_gateway_resource.comment_replies_resource,
+      aws_api_gateway_resource.comment_reactions_resource,
       aws_api_gateway_resource.post_favorites_resource,
       aws_api_gateway_resource.post_views_resource,
-      aws_api_gateway_method.reaction_post_method,
-      aws_api_gateway_method.remove_reaction_post_method,
+      aws_api_gateway_method.post_reactions_method,
+      aws_api_gateway_method.put_reactions_method,
+      aws_api_gateway_method.delete_reactions_method,
+      aws_api_gateway_method.get_reactions_method,
       aws_api_gateway_method.comment_post_method,
+      aws_api_gateway_method.get_comments_method,
+      aws_api_gateway_method.reply_to_comment_method,
+      aws_api_gateway_method.comment_reactions_post_method,
+      aws_api_gateway_method.comment_reactions_put_method,
+      aws_api_gateway_method.comment_reactions_delete_method,
+      aws_api_gateway_method.comment_reactions_get_method,
       aws_api_gateway_method.favorite_post_method,
       aws_api_gateway_method.unfavorite_post_method,
-      aws_api_gateway_method.view_post_method
+      aws_api_gateway_method.view_post_method,
+      aws_api_gateway_integration.post_reactions_lambda_integration,
+      aws_api_gateway_integration.put_reactions_lambda_integration,
+      aws_api_gateway_integration.delete_reactions_lambda_integration,
+      aws_api_gateway_integration.get_reactions_lambda_integration,
+      aws_api_gateway_integration.comment_post_lambda_integration,
+      aws_api_gateway_integration.get_comments_lambda_integration,
+      aws_api_gateway_integration.reply_to_comment_lambda_integration,
+      aws_api_gateway_integration.comment_reactions_post_lambda_integration,
+      aws_api_gateway_integration.comment_reactions_put_lambda_integration,
+      aws_api_gateway_integration.comment_reactions_delete_lambda_integration,
+      aws_api_gateway_integration.comment_reactions_get_lambda_integration,
+      aws_api_gateway_integration.favorite_post_lambda_integration,
+      aws_api_gateway_integration.unfavorite_post_lambda_integration,
+      aws_api_gateway_integration.view_post_lambda_integration,
+      aws_api_gateway_authorizer.custom_authorizer
     ]))
   }
 

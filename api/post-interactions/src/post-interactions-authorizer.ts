@@ -63,15 +63,8 @@ export const handler = async (
     const region = arnParts[3];
     const account = arnParts[4];
 
-    const allowedResources = [
-      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/comment`,
-      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/favorite`,
-      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/unfavorite`,
-      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/react`,
-      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/remove-reaction`,
-      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/view`,
-      `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/flush-view-counts`,
-    ];
+    // Create a more permissive resource pattern that covers all endpoints
+    const resourceArn = `arn:aws:execute-api:${region}:${account}:${restApiId}/${stage}/*/*`;
 
     // Get the principalId from Firebase UID
     const principalId = decodedToken.uid || "user";
@@ -80,7 +73,7 @@ export const handler = async (
     const policy = generatePolicy(
       principalId,
       "Allow",
-      allowedResources,
+      [resourceArn],
       decodedToken.email || "",
       decodedToken.name || "",
       decodedToken.email || ""

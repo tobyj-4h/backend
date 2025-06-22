@@ -36,7 +36,7 @@ export const handler = async (
       return {
         statusCode: 404,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({ error: "Profile not found" }),
@@ -46,7 +46,7 @@ export const handler = async (
     return {
       statusCode: 200,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify(result.Item),
@@ -57,7 +57,7 @@ export const handler = async (
     return {
       statusCode: 500,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({ error: "Failed to create user profile" }),

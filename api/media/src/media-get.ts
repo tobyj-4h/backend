@@ -6,6 +6,9 @@ export async function handler(event: any) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "Missing mediaId in request" }),
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+        },
       };
     }
 
@@ -20,12 +23,18 @@ export async function handler(event: any) {
     return {
       statusCode: 200,
       body: JSON.stringify({ url: cloudFrontUrl }),
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+      },
     };
   } catch (error) {
     console.error("Error retrieving media:", error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Failed to retrieve media" }),
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+      },
     };
   }
 }

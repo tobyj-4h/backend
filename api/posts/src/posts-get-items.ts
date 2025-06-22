@@ -5,6 +5,7 @@ import {
   ScanCommand,
   BatchGetCommand,
   QueryCommand,
+  GetCommand,
 } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({});
@@ -14,6 +15,7 @@ const USER_PROFILE_TABLE = process.env.USER_PROFILE_TABLE || "user_profile";
 const REQUIRED_SCOPE = process.env.REQUIRED_SCOPE;
 
 interface UserProfile {
+  id: string;
   handle: string;
   profile_picture_url?: string;
   first_name: string;
@@ -49,13 +51,14 @@ interface PostsResponse {
 
 // Helper function to calculate engagement score for "What's Hot" filtering
 const calculateEngagementScore = (post: any): number => {
-  const views = post.view_count || 0;
-  const reactions = post.reaction_count || 0;
-  const comments = post.comment_count || 0;
-  const favorites = post.favorite_count || 0;
+  const views = post.views || 0;
+  const likes = post.likes || 0;
+  const comments = post.comments || 0;
+  const reposts = post.reposts || 0;
+  const quotes = post.quotes || 0;
 
   // Weight different engagement types
-  return views * 0.1 + reactions * 2 + comments * 3 + favorites * 2;
+  return views * 0.1 + (likes + reposts + quotes) * 2 + comments * 3;
 };
 
 // Helper function to get posts based on filter type
@@ -381,6 +384,271 @@ const getTotalCount = async (
   return result.Count || 0;
 };
 
+// Helper function to get interaction counts for posts
+const getInteractionCounts = async (
+  postIds: string[]
+): Promise<{ [postId: string]: any }> => {
+  const counts: { [postId: string]: any } = {};
+
+  // Initialize counts for all posts
+  postIds.forEach((postId) => {
+    counts[postId] = {
+      comments: 0,
+      likes: 0,
+      reposts: 0,
+      quotes: 0,
+      views: 0,
+      reactions: {
+        like: 0,
+        love: 0,
+        laugh: 0,
+        wow: 0,
+        sad: 0,
+        angry: 0,
+      },
+    };
+  });
+
+  try {
+    // Get view counts using BatchGetItem
+    const viewKeys = postIds.map((postId) => ({ post_id: postId }));
+    const viewBatchParams = new BatchGetCommand({
+      RequestItems: {
+        post_view_counters: {
+          Keys: viewKeys,
+        },
+      },
+    });
+
+    const viewResult = await dynamoDb.send(viewBatchParams);
+    if (viewResult.Responses?.["post_view_counters"]) {
+      viewResult.Responses["post_view_counters"].forEach((item: any) => {
+        const postId = item.post_id;
+        if (postId && item.view_count) {
+          counts[postId].views = parseInt(item.view_count.N || "0", 10);
+        }
+      });
+    }
+
+    // Get all reactions for all posts - scan entire table and filter in memory
+    const reactionsParams = new ScanCommand({
+      TableName: "post_reactions",
+    });
+
+    const reactionsResult = await dynamoDb.send(reactionsParams);
+    if (reactionsResult.Items) {
+      console.log("Reactions found:", reactionsResult.Items.length);
+      console.log("Sample reactions:", reactionsResult.Items.slice(0, 3));
+      console.log("Querying for post IDs:", postIds);
+
+      // Create a set of lowercase post IDs for efficient lookup
+      const targetPostIds = new Set(postIds.map((id) => id.toLowerCase()));
+
+      // Group reactions by post_id and reaction type (case-insensitive)
+      const reactionCounts: {
+        [postId: string]: { [reaction: string]: number };
+      } = {};
+
+      reactionsResult.Items.forEach((item) => {
+        const postId = item.post_id;
+        const reaction = item.reaction;
+        // Use lowercase for consistent matching
+        const normalizedPostId = postId.toLowerCase();
+
+        // Only process if this post is in our target list
+        if (targetPostIds.has(normalizedPostId)) {
+          if (!reactionCounts[normalizedPostId]) {
+            reactionCounts[normalizedPostId] = {};
+          }
+          reactionCounts[normalizedPostId][reaction] =
+            (reactionCounts[normalizedPostId][reaction] || 0) + 1;
+        }
+      });
+
+      console.log("Reaction counts by post (normalized):", reactionCounts);
+
+      // Map reactions to expected fields (case-insensitive matching)
+      postIds.forEach((postId) => {
+        const normalizedPostId = postId.toLowerCase();
+        const postReactions = reactionCounts[normalizedPostId] || {};
+
+        // Set detailed reaction counts
+        counts[postId].reactions.like = postReactions["like"] || 0;
+        counts[postId].reactions.love = postReactions["love"] || 0;
+        counts[postId].reactions.laugh = postReactions["laugh"] || 0;
+        counts[postId].reactions.wow = postReactions["wow"] || 0;
+        counts[postId].reactions.sad = postReactions["sad"] || 0;
+        counts[postId].reactions.angry = postReactions["angry"] || 0;
+
+        // Map specific reactions to expected fields (legacy support)
+        // New reaction types: like, love, laugh, wow, sad, angry
+        counts[postId].likes =
+          postReactions["like"] ||
+          postReactions["love"] ||
+          postReactions["👍"] ||
+          postReactions["❤️"] ||
+          0;
+        counts[postId].reposts =
+          postReactions["🔄"] || postReactions["repost"] || 0;
+        counts[postId].quotes =
+          postReactions["💬"] || postReactions["quote"] || 0;
+      });
+    }
+
+    // Get comment counts - scan entire table and filter in memory
+    const commentsParams = new ScanCommand({
+      TableName: "post_comments",
+    });
+
+    const commentsResult = await dynamoDb.send(commentsParams);
+    if (commentsResult.Items) {
+      console.log("Comments found:", commentsResult.Items.length);
+      console.log("Sample comments:", commentsResult.Items.slice(0, 3));
+
+      // Create a set of lowercase post IDs for efficient lookup
+      const targetPostIds = new Set(postIds.map((id) => id.toLowerCase()));
+
+      // Group comments by post_id (case-insensitive)
+      const commentCounts: { [postId: string]: number } = {};
+      commentsResult.Items.forEach((item) => {
+        const postId = item.post_id;
+        // Use lowercase for consistent matching
+        const normalizedPostId = postId.toLowerCase();
+
+        // Only process if this post is in our target list
+        if (targetPostIds.has(normalizedPostId)) {
+          commentCounts[normalizedPostId] =
+            (commentCounts[normalizedPostId] || 0) + 1;
+        }
+      });
+
+      console.log("Comment counts by post (normalized):", commentCounts);
+
+      // Assign comment counts (case-insensitive matching)
+      postIds.forEach((postId) => {
+        const normalizedPostId = postId.toLowerCase();
+        counts[postId].comments = commentCounts[normalizedPostId] || 0;
+      });
+    }
+
+    // Get favorite counts and add them to likes - scan entire table and filter in memory
+    const favoritesParams = new ScanCommand({
+      TableName: "post_user_favorites",
+    });
+
+    const favoritesResult = await dynamoDb.send(favoritesParams);
+    if (favoritesResult.Items) {
+      console.log("Favorites found:", favoritesResult.Items.length);
+      console.log("Sample favorites:", favoritesResult.Items.slice(0, 3));
+
+      // Create a set of lowercase post IDs for efficient lookup
+      const targetPostIds = new Set(postIds.map((id) => id.toLowerCase()));
+
+      // Group favorites by post_id (case-insensitive)
+      const favoriteCounts: { [postId: string]: number } = {};
+      favoritesResult.Items.forEach((item) => {
+        const postId = item.post_id;
+        // Use lowercase for consistent matching
+        const normalizedPostId = postId.toLowerCase();
+
+        // Only process if this post is in our target list
+        if (targetPostIds.has(normalizedPostId)) {
+          favoriteCounts[normalizedPostId] =
+            (favoriteCounts[normalizedPostId] || 0) + 1;
+        }
+      });
+
+      console.log("Favorite counts by post:", favoriteCounts);
+
+      // Add favorite counts to likes (case-insensitive matching)
+      postIds.forEach((postId) => {
+        const normalizedPostId = postId.toLowerCase();
+        const favoriteCount = favoriteCounts[normalizedPostId] || 0;
+        counts[postId].likes += favoriteCount;
+        if (favoriteCount > 0) {
+          console.log(`Post ${postId} has ${favoriteCount} favorites`);
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Error getting interaction counts:", error);
+  }
+
+  console.log("Final interaction counts:", counts);
+  return counts;
+};
+
+// Helper function to get user interaction states for posts
+const getUserInteractionStates = async (
+  postIds: string[],
+  userId: string
+): Promise<{
+  [postId: string]: { is_favorite: boolean; user_reaction: string | null };
+}> => {
+  const states: {
+    [postId: string]: { is_favorite: boolean; user_reaction: string | null };
+  } = {};
+
+  // Initialize states for all posts
+  postIds.forEach((postId) => {
+    states[postId] = {
+      is_favorite: false,
+      user_reaction: null,
+    };
+  });
+
+  if (!userId) {
+    return states;
+  }
+
+  try {
+    // Get user favorites for all posts using BatchGetItem
+    const favoriteKeys = postIds.map((postId) => ({
+      user_id: userId,
+      post_id: postId,
+    }));
+
+    const batchParams = new BatchGetCommand({
+      RequestItems: {
+        post_user_favorites: {
+          Keys: favoriteKeys,
+        },
+        post_reactions: {
+          Keys: postIds.map((postId) => ({
+            post_id: postId,
+            user_id: userId,
+          })),
+        },
+      },
+    });
+
+    const result = await dynamoDb.send(batchParams);
+
+    if (result.Responses?.["post_user_favorites"]) {
+      result.Responses["post_user_favorites"].forEach((item: any) => {
+        const postId = item.post_id;
+        if (postId) {
+          states[postId].is_favorite = true;
+        }
+      });
+    }
+
+    if (result.Responses?.["post_reactions"]) {
+      result.Responses["post_reactions"].forEach((item: any) => {
+        const postId = item.post_id;
+        const reaction = item.reaction?.S;
+        if (postId && reaction) {
+          states[postId].user_reaction = reaction;
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Error getting user interaction states:", error);
+  }
+
+  return states;
+};
+
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
@@ -420,7 +688,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({ error: "Page must be 0 or greater" }),
@@ -431,7 +699,7 @@ export const handler = async (
       return {
         statusCode: 400,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
         },
         body: JSON.stringify({ error: "Page size must be between 1 and 100" }),
@@ -476,6 +744,7 @@ export const handler = async (
         if (batchResult.Responses?.[USER_PROFILE_TABLE]) {
           batchResult.Responses[USER_PROFILE_TABLE].forEach((profile: any) => {
             userProfiles[profile.user_id] = {
+              id: profile.user_id,
               handle: profile.handle,
               profile_picture_url: profile.profile_picture_url,
               first_name: profile.first_name,
@@ -492,6 +761,51 @@ export const handler = async (
       user: post.user_id ? userProfiles[post.user_id] : undefined,
     }));
 
+    // Get interaction counts for all posts
+    const postIds = posts.map((post) => post.id);
+
+    // Limit the number of posts we process for interaction data to prevent timeouts
+    const maxPostsForInteractions = 50;
+    const limitedPostIds = postIds.slice(0, maxPostsForInteractions);
+
+    console.log(
+      `Processing interaction data for ${limitedPostIds.length} posts out of ${postIds.length} total posts`
+    );
+
+    let interactionCounts: { [postId: string]: any } = {};
+    let userInteractionStates: {
+      [postId: string]: { is_favorite: boolean; user_reaction: string | null };
+    } = {};
+
+    try {
+      [interactionCounts, userInteractionStates] = await Promise.all([
+        getInteractionCounts(limitedPostIds),
+        userId
+          ? getUserInteractionStates(limitedPostIds, userId)
+          : Promise.resolve(
+              {} as {
+                [postId: string]: {
+                  is_favorite: boolean;
+                  user_reaction: string | null;
+                };
+              }
+            ),
+      ]);
+      console.log("Successfully fetched interaction data");
+    } catch (error) {
+      console.error("Error fetching interaction data, using defaults:", error);
+      // Use default values if interaction data fails to load
+      interactionCounts = {};
+      userInteractionStates = {};
+    }
+
+    // Add interaction counts and user interaction states to posts
+    const postsWithInteractions = postsWithUserInfo.map((post) => ({
+      ...post,
+      ...interactionCounts[post.id],
+      ...userInteractionStates[post.id],
+    }));
+
     // Calculate pagination info
     const totalPages = Math.ceil(totalCount / pageSize);
     const pagination: PaginationInfo = {
@@ -503,17 +817,20 @@ export const handler = async (
       hasPreviousPage: page > 0,
     };
 
+    console.log("postsWithInteractions", postsWithInteractions);
+    console.log("pagination", pagination);
+
     const response: PostsResponse = {
-      posts: postsWithUserInfo,
+      posts: postsWithInteractions,
       pagination: pagination,
     };
 
-    console.log("response", response);
+    console.log("response", JSON.stringify(response, null, 2));
 
     return {
       statusCode: 200,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify(response),
@@ -524,7 +841,7 @@ export const handler = async (
     return {
       statusCode: 500,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({ error: "Failed to retrieve posts" }),

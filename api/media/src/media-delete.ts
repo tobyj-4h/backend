@@ -13,6 +13,9 @@ export async function handler(event: any) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "Missing mediaId in request" }),
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+        },
       };
     }
 
@@ -26,12 +29,18 @@ export async function handler(event: any) {
     return {
       statusCode: 200,
       body: JSON.stringify({ message: "File deleted successfully" }),
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+      },
     };
   } catch (error) {
     console.error("Error deleting media:", error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Failed to delete media" }),
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+      },
     };
   }
 }

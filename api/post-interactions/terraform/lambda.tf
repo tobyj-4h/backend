@@ -1,3 +1,5 @@
+# Use the current AWS region and account
+
 resource "aws_iam_role" "lambda_exec" {
   name = "interactions_api_lambda_exec_role"
 
@@ -38,9 +40,13 @@ resource "aws_iam_policy" "dynamodb_access_policy" {
       Resource = [
         aws_dynamodb_table.post_events.arn,
         aws_dynamodb_table.post_reactions.arn,
+        aws_dynamodb_table.post_comments.arn,
+        aws_dynamodb_table.comment_reactions.arn,
         aws_dynamodb_table.post_user_favorites.arn,
         aws_dynamodb_table.post_view_counters.arn,
-        aws_dynamodb_table.post_views.arn
+        aws_dynamodb_table.post_views.arn,
+        "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/posts",
+        "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/user_profile"
       ]
     }]
   })
@@ -52,50 +58,10 @@ resource "aws_iam_role_policy_attachment" "dynamodb_access_attachment" {
 }
 
 ##################################################
-# LAMBDA: Reaction Post
+# Consolidated Lambda Logging Policy
 ##################################################
-resource "aws_lambda_function" "reaction_post_lambda" {
-  function_name = "ReactionPostFunction"
-  handler       = "react-to-post.handler"
-  runtime       = "nodejs20.x"
-  role          = aws_iam_role.lambda_exec.arn
-
-  filename         = "${path.module}/../dist/react-to-post.zip"
-  source_code_hash = filebase64sha256("${path.module}/../dist/react-to-post.zip")
-
-  environment {
-    variables = {
-      REACTIONS_TABLE = aws_dynamodb_table.post_reactions.id,
-      EVENTS_TABLE    = aws_dynamodb_table.post_events.id,
-      ENVIRONMENT     = var.environment
-    }
-  }
-}
-
-##################################################
-# LAMBDA: Reaction Post Permission
-##################################################
-resource "aws_lambda_permission" "api_gateway_reaction_post_permission" {
-  statement_id  = "AllowExecutionFromAPIGateway"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.reaction_post_lambda.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
-}
-
-##################################################
-# LAMBDA: Reaction Post Log Group
-##################################################
-resource "aws_cloudwatch_log_group" "reaction_post_log_group" {
-  name              = "/aws/lambda/ReactionPostFunction"
-  retention_in_days = 7
-}
-
-##################################################
-# LAMBDA: Reaction Post Policy
-##################################################
-resource "aws_iam_policy" "reaction_post_lambda_policy" {
-  name = "ReactionPostPolicy"
+resource "aws_iam_policy" "lambda_logging_policy" {
+  name = "LambdaLoggingPolicy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -106,26 +72,51 @@ resource "aws_iam_policy" "reaction_post_lambda_policy" {
       ]
       Effect = "Allow"
       Resource = [
-        aws_cloudwatch_log_group.reaction_post_log_group.arn,
-        "${aws_cloudwatch_log_group.reaction_post_log_group.arn}:*"
+        aws_cloudwatch_log_group.post_interactions_remove_reaction_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_remove_reaction_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_comment_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_comment_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_favorite_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_favorite_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_unfavorite_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_unfavorite_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_view_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_view_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_add_reaction_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_add_reaction_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_update_reaction_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_update_reaction_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_delete_reaction_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_delete_reaction_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_get_reaction_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_get_reaction_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_get_comments_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_get_comments_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_reply_comment_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_reply_comment_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_add_comment_reaction_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_add_comment_reaction_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_update_comment_reaction_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_update_comment_reaction_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_delete_comment_reaction_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_delete_comment_reaction_log_group.arn}:*",
+        aws_cloudwatch_log_group.post_interactions_get_comment_reaction_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_get_comment_reaction_log_group.arn}:*"
       ]
     }]
   })
 }
 
-##################################################
-# LAMBDA: Reaction Post Attach Policy
-##################################################
-resource "aws_iam_role_policy_attachment" "reaction_post_lambda_attach_policy" {
+resource "aws_iam_role_policy_attachment" "lambda_logging_policy_attachment" {
   role       = aws_iam_role.lambda_exec.name
-  policy_arn = aws_iam_policy.reaction_post_lambda_policy.arn
+  policy_arn = aws_iam_policy.lambda_logging_policy.arn
 }
 
 ##################################################
 # LAMBDA: Remove Reaction Post
 ##################################################
-resource "aws_lambda_function" "remove_reaction_post_lambda" {
-  function_name = "RemoveReactionPostFunction"
+resource "aws_lambda_function" "post_interactions_remove_reaction_lambda" {
+  function_name = "PostInteractionsRemoveReactionFunction"
   handler       = "remove-reaction-from-post.handler"
   runtime       = "nodejs20.x"
   role          = aws_iam_role.lambda_exec.arn
@@ -137,6 +128,7 @@ resource "aws_lambda_function" "remove_reaction_post_lambda" {
     variables = {
       REACTIONS_TABLE = aws_dynamodb_table.post_reactions.id,
       EVENTS_TABLE    = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE     = "posts",
       ENVIRONMENT     = var.environment
     }
   }
@@ -145,10 +137,10 @@ resource "aws_lambda_function" "remove_reaction_post_lambda" {
 ##################################################
 # LAMBDA: Remove Reaction Post Permission
 ##################################################
-resource "aws_lambda_permission" "api_gateway_remove_reaction_post_permission" {
+resource "aws_lambda_permission" "api_gateway_post_interactions_remove_reaction_permission" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.remove_reaction_post_lambda.function_name
+  function_name = aws_lambda_function.post_interactions_remove_reaction_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
 }
@@ -156,16 +148,16 @@ resource "aws_lambda_permission" "api_gateway_remove_reaction_post_permission" {
 ##################################################
 # LAMBDA: Remove Reaction Post Log Group
 ##################################################
-resource "aws_cloudwatch_log_group" "remove_reaction_post_log_group" {
-  name              = "/aws/lambda/RemoveReactionPostFunction"
+resource "aws_cloudwatch_log_group" "post_interactions_remove_reaction_log_group" {
+  name              = "/aws/lambda/PostInteractionsRemoveReactionFunction"
   retention_in_days = 7
 }
 
 ##################################################
 # LAMBDA: Remove Reaction Post Policy
 ##################################################
-resource "aws_iam_policy" "remove_reaction_post_lambda_policy" {
-  name = "RemoveReactionPostPolicy"
+resource "aws_iam_policy" "post_interactions_remove_reaction_lambda_policy" {
+  name = "PostInteractionsRemoveReactionPolicy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -176,8 +168,8 @@ resource "aws_iam_policy" "remove_reaction_post_lambda_policy" {
       ]
       Effect = "Allow"
       Resource = [
-        aws_cloudwatch_log_group.remove_reaction_post_log_group.arn,
-        "${aws_cloudwatch_log_group.remove_reaction_post_log_group.arn}:*"
+        aws_cloudwatch_log_group.post_interactions_remove_reaction_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_remove_reaction_log_group.arn}:*"
       ]
     }]
   })
@@ -186,16 +178,16 @@ resource "aws_iam_policy" "remove_reaction_post_lambda_policy" {
 ##################################################
 # LAMBDA: Remove Reaction Post Attach Policy
 ##################################################
-resource "aws_iam_role_policy_attachment" "remove_reaction_post_lambda_attach_policy" {
+resource "aws_iam_role_policy_attachment" "post_interactions_remove_reaction_lambda_attach_policy" {
   role       = aws_iam_role.lambda_exec.name
-  policy_arn = aws_iam_policy.remove_reaction_post_lambda_policy.arn
+  policy_arn = aws_iam_policy.post_interactions_remove_reaction_lambda_policy.arn
 }
 
 ##################################################
 # LAMBDA: Comment Post
 ##################################################
-resource "aws_lambda_function" "comment_post_lambda" {
-  function_name = "CommentPostFunction"
+resource "aws_lambda_function" "post_interactions_comment_lambda" {
+  function_name = "PostInteractionsCommentFunction"
   handler       = "comment-on-post.handler"
   runtime       = "nodejs20.x"
   role          = aws_iam_role.lambda_exec.arn
@@ -205,9 +197,11 @@ resource "aws_lambda_function" "comment_post_lambda" {
 
   environment {
     variables = {
-      EVENTS_TABLE   = aws_dynamodb_table.post_events.id,
-      COMMENTS_TABLE = aws_dynamodb_table.post_comments.id,
-      ENVIRONMENT    = var.environment
+      COMMENTS_TABLE     = aws_dynamodb_table.post_comments.id,
+      EVENTS_TABLE       = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE        = "posts",
+      USER_PROFILE_TABLE = "user_profile",
+      ENVIRONMENT        = var.environment
     }
   }
 }
@@ -215,10 +209,10 @@ resource "aws_lambda_function" "comment_post_lambda" {
 ##################################################
 # LAMBDA: Comment Post Permission
 ##################################################
-resource "aws_lambda_permission" "api_gateway_comment_post_permission" {
+resource "aws_lambda_permission" "api_gateway_post_interactions_comment_permission" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.comment_post_lambda.function_name
+  function_name = aws_lambda_function.post_interactions_comment_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
 }
@@ -226,16 +220,16 @@ resource "aws_lambda_permission" "api_gateway_comment_post_permission" {
 ##################################################
 # LAMBDA: Comment Post Log Group
 ##################################################
-resource "aws_cloudwatch_log_group" "comment_post_log_group" {
-  name              = "/aws/lambda/CommentPostFunction"
+resource "aws_cloudwatch_log_group" "post_interactions_comment_log_group" {
+  name              = "/aws/lambda/PostInteractionsCommentFunction"
   retention_in_days = 7
 }
 
 ##################################################
 # LAMBDA: Comment Post Policy
 ##################################################
-resource "aws_iam_policy" "comment_post_lambda_policy" {
-  name = "CommentPostPolicy"
+resource "aws_iam_policy" "post_interactions_comment_lambda_policy" {
+  name = "PostInteractionsCommentPolicy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -246,8 +240,8 @@ resource "aws_iam_policy" "comment_post_lambda_policy" {
       ]
       Effect = "Allow"
       Resource = [
-        aws_cloudwatch_log_group.comment_post_log_group.arn,
-        "${aws_cloudwatch_log_group.comment_post_log_group.arn}:*"
+        aws_cloudwatch_log_group.post_interactions_comment_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_comment_log_group.arn}:*"
       ]
     }]
   })
@@ -256,16 +250,16 @@ resource "aws_iam_policy" "comment_post_lambda_policy" {
 ##################################################
 # LAMBDA: Comment Post Attach Policy
 ##################################################
-resource "aws_iam_role_policy_attachment" "comment_post_lambda_attach_policy" {
+resource "aws_iam_role_policy_attachment" "post_interactions_comment_lambda_attach_policy" {
   role       = aws_iam_role.lambda_exec.name
-  policy_arn = aws_iam_policy.comment_post_lambda_policy.arn
+  policy_arn = aws_iam_policy.post_interactions_comment_lambda_policy.arn
 }
 
 ##################################################
 # LAMBDA: Favorite Post
 ##################################################
-resource "aws_lambda_function" "favorite_post_lambda" {
-  function_name = "FavoritePostFunction"
+resource "aws_lambda_function" "post_interactions_favorite_lambda" {
+  function_name = "PostInteractionsFavoriteFunction"
   handler       = "favorite-post.handler"
   runtime       = "nodejs20.x"
   role          = aws_iam_role.lambda_exec.arn
@@ -277,6 +271,7 @@ resource "aws_lambda_function" "favorite_post_lambda" {
     variables = {
       FAVORITES_TABLE = aws_dynamodb_table.post_user_favorites.id,
       EVENTS_TABLE    = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE     = "posts",
       ENVIRONMENT     = var.environment
     }
   }
@@ -285,10 +280,10 @@ resource "aws_lambda_function" "favorite_post_lambda" {
 ##################################################
 # LAMBDA: Favorite Post Permission
 ##################################################
-resource "aws_lambda_permission" "api_gateway_favorite_post_permission" {
+resource "aws_lambda_permission" "api_gateway_post_interactions_favorite_permission" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.favorite_post_lambda.function_name
+  function_name = aws_lambda_function.post_interactions_favorite_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
 }
@@ -296,16 +291,16 @@ resource "aws_lambda_permission" "api_gateway_favorite_post_permission" {
 ##################################################
 # LAMBDA: Favorite Post Log Group
 ##################################################
-resource "aws_cloudwatch_log_group" "favorite_post_log_group" {
-  name              = "/aws/lambda/FavoritePostFunction"
+resource "aws_cloudwatch_log_group" "post_interactions_favorite_log_group" {
+  name              = "/aws/lambda/PostInteractionsFavoriteFunction"
   retention_in_days = 7
 }
 
 ##################################################
 # LAMBDA: Favorite Post Policy
 ##################################################
-resource "aws_iam_policy" "favorite_post_lambda_policy" {
-  name = "FavoritePostPolicy"
+resource "aws_iam_policy" "post_interactions_favorite_lambda_policy" {
+  name = "PostInteractionsFavoritePolicy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -316,8 +311,8 @@ resource "aws_iam_policy" "favorite_post_lambda_policy" {
       ]
       Effect = "Allow"
       Resource = [
-        aws_cloudwatch_log_group.favorite_post_log_group.arn,
-        "${aws_cloudwatch_log_group.favorite_post_log_group.arn}:*"
+        aws_cloudwatch_log_group.post_interactions_favorite_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_favorite_log_group.arn}:*"
       ]
     }]
   })
@@ -326,16 +321,16 @@ resource "aws_iam_policy" "favorite_post_lambda_policy" {
 ##################################################
 # LAMBDA: Favorite Post Attach Policy
 ##################################################
-resource "aws_iam_role_policy_attachment" "favorite_post_lambda_attach_policy" {
+resource "aws_iam_role_policy_attachment" "post_interactions_favorite_lambda_attach_policy" {
   role       = aws_iam_role.lambda_exec.name
-  policy_arn = aws_iam_policy.favorite_post_lambda_policy.arn
+  policy_arn = aws_iam_policy.post_interactions_favorite_lambda_policy.arn
 }
 
 ##################################################
 # LAMBDA: Unfavorite Post
 ##################################################
-resource "aws_lambda_function" "unfavorite_post_lambda" {
-  function_name = "UnfavoritePostFunction"
+resource "aws_lambda_function" "post_interactions_unfavorite_lambda" {
+  function_name = "PostInteractionsUnfavoriteFunction"
   handler       = "unfavorite-post.handler"
   runtime       = "nodejs20.x"
   role          = aws_iam_role.lambda_exec.arn
@@ -347,6 +342,7 @@ resource "aws_lambda_function" "unfavorite_post_lambda" {
     variables = {
       FAVORITES_TABLE = aws_dynamodb_table.post_user_favorites.id,
       EVENTS_TABLE    = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE     = "posts",
       ENVIRONMENT     = var.environment
     }
   }
@@ -355,10 +351,10 @@ resource "aws_lambda_function" "unfavorite_post_lambda" {
 ##################################################
 # LAMBDA: Unfavorite Post Permission
 ##################################################
-resource "aws_lambda_permission" "api_gateway_unfavorite_post_permission" {
+resource "aws_lambda_permission" "api_gateway_post_interactions_unfavorite_permission" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.unfavorite_post_lambda.function_name
+  function_name = aws_lambda_function.post_interactions_unfavorite_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
 }
@@ -366,16 +362,16 @@ resource "aws_lambda_permission" "api_gateway_unfavorite_post_permission" {
 ##################################################
 # LAMBDA: Unfavorite Post Log Group
 ##################################################
-resource "aws_cloudwatch_log_group" "unfavorite_post_log_group" {
-  name              = "/aws/lambda/UnfavoritePostFunction"
+resource "aws_cloudwatch_log_group" "post_interactions_unfavorite_log_group" {
+  name              = "/aws/lambda/PostInteractionsUnfavoriteFunction"
   retention_in_days = 7
 }
 
 ##################################################
 # LAMBDA: Unfavorite Post Policy
 ##################################################
-resource "aws_iam_policy" "unfavorite_post_lambda_policy" {
-  name = "UnfavoritePostPolicy"
+resource "aws_iam_policy" "post_interactions_unfavorite_lambda_policy" {
+  name = "PostInteractionsUnfavoritePolicy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -386,8 +382,8 @@ resource "aws_iam_policy" "unfavorite_post_lambda_policy" {
       ]
       Effect = "Allow"
       Resource = [
-        aws_cloudwatch_log_group.unfavorite_post_log_group.arn,
-        "${aws_cloudwatch_log_group.unfavorite_post_log_group.arn}:*"
+        aws_cloudwatch_log_group.post_interactions_unfavorite_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_unfavorite_log_group.arn}:*"
       ]
     }]
   })
@@ -396,16 +392,16 @@ resource "aws_iam_policy" "unfavorite_post_lambda_policy" {
 ##################################################
 # LAMBDA: Unfavorite Post Attach Policy
 ##################################################
-resource "aws_iam_role_policy_attachment" "unfavorite_post_lambda_attach_policy" {
+resource "aws_iam_role_policy_attachment" "post_interactions_unfavorite_lambda_attach_policy" {
   role       = aws_iam_role.lambda_exec.name
-  policy_arn = aws_iam_policy.unfavorite_post_lambda_policy.arn
+  policy_arn = aws_iam_policy.post_interactions_unfavorite_lambda_policy.arn
 }
 
 ##################################################
 # LAMBDA: View Post
 ##################################################
-resource "aws_lambda_function" "view_post_lambda" {
-  function_name = "ViewPostFunction"
+resource "aws_lambda_function" "post_interactions_view_lambda" {
+  function_name = "PostInteractionsViewFunction"
   handler       = "view-post.handler"
   runtime       = "nodejs20.x"
   role          = aws_iam_role.lambda_exec.arn
@@ -415,10 +411,10 @@ resource "aws_lambda_function" "view_post_lambda" {
 
   environment {
     variables = {
-      VIEWS_TABLE   = aws_dynamodb_table.post_views.id,
-      COUNTER_TABLE = aws_dynamodb_table.post_view_counters.id,
-      EVENTS_TABLE  = aws_dynamodb_table.post_events.id,
-      ENVIRONMENT   = var.environment
+      VIEWS_TABLE  = aws_dynamodb_table.post_views.id,
+      EVENTS_TABLE = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE  = "posts",
+      ENVIRONMENT  = var.environment
     }
   }
 }
@@ -426,10 +422,10 @@ resource "aws_lambda_function" "view_post_lambda" {
 ##################################################
 # LAMBDA: View Post Permission
 ##################################################
-resource "aws_lambda_permission" "api_gateway_view_post_permission" {
+resource "aws_lambda_permission" "api_gateway_post_interactions_view_permission" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.view_post_lambda.function_name
+  function_name = aws_lambda_function.post_interactions_view_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
 }
@@ -437,16 +433,16 @@ resource "aws_lambda_permission" "api_gateway_view_post_permission" {
 ##################################################
 # LAMBDA: View Post Log Group
 ##################################################
-resource "aws_cloudwatch_log_group" "view_post_log_group" {
-  name              = "/aws/lambda/ViewPostFunction"
+resource "aws_cloudwatch_log_group" "post_interactions_view_log_group" {
+  name              = "/aws/lambda/PostInteractionsViewFunction"
   retention_in_days = 7
 }
 
 ##################################################
 # LAMBDA: View Post Policy
 ##################################################
-resource "aws_iam_policy" "view_post_lambda_policy" {
-  name = "ViewPostPolicy"
+resource "aws_iam_policy" "post_interactions_view_lambda_policy" {
+  name = "PostInteractionsViewPolicy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -457,8 +453,8 @@ resource "aws_iam_policy" "view_post_lambda_policy" {
       ]
       Effect = "Allow"
       Resource = [
-        aws_cloudwatch_log_group.view_post_log_group.arn,
-        "${aws_cloudwatch_log_group.view_post_log_group.arn}:*"
+        aws_cloudwatch_log_group.post_interactions_view_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_view_log_group.arn}:*"
       ]
     }]
   })
@@ -467,40 +463,44 @@ resource "aws_iam_policy" "view_post_lambda_policy" {
 ##################################################
 # LAMBDA: View Post Attach Policy
 ##################################################
-resource "aws_iam_role_policy_attachment" "view_post_lambda_attach_policy" {
+resource "aws_iam_role_policy_attachment" "post_interactions_view_lambda_attach_policy" {
   role       = aws_iam_role.lambda_exec.name
-  policy_arn = aws_iam_policy.view_post_lambda_policy.arn
+  policy_arn = aws_iam_policy.post_interactions_view_lambda_policy.arn
 }
 
 ##################################################
-# LAMBDA: View Post
+# LAMBDA: Flush View Counts (Scheduled)
 ##################################################
 resource "aws_lambda_function" "flush_view_counts" {
-  function_name = "FlushViewCounts"
-  role          = aws_iam_role.lambda_exec.arn
+  function_name = "PostInteractionsFlushViewCountsFunction"
   handler       = "flush-view-counts.handler"
   runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_exec.arn
 
   filename         = "${path.module}/../dist/flush-view-counts.zip"
   source_code_hash = filebase64sha256("${path.module}/../dist/flush-view-counts.zip")
 
   environment {
     variables = {
-      VIEWS_TABLE         = aws_dynamodb_table.post_views.name
-      VIEW_COUNTERS_TABLE = aws_dynamodb_table.post_view_counters.name
-      ENVIRONMENT         = var.environment
+      VIEWS_TABLE = aws_dynamodb_table.post_views.id,
+      POSTS_TABLE = "posts",
+      ENVIRONMENT = var.environment
     }
   }
 }
 
+##################################################
+# LAMBDA: Flush View Counts Schedule
+##################################################
 resource "aws_cloudwatch_event_rule" "flush_view_counts_schedule" {
-  name                = "FlushViewCountsSchedule"
-  schedule_expression = "rate(1 minute)"
+  name                = "flush-view-counts-schedule"
+  description         = "Schedule for flushing view counts to posts table"
+  schedule_expression = "rate(5 minutes)"
 }
 
 resource "aws_cloudwatch_event_target" "flush_view_counts_target" {
   rule      = aws_cloudwatch_event_rule.flush_view_counts_schedule.name
-  target_id = "FlushViewCountsLambda"
+  target_id = "FlushViewCountsTarget"
   arn       = aws_lambda_function.flush_view_counts.arn
 }
 
@@ -513,7 +513,7 @@ resource "aws_lambda_permission" "allow_cloudwatch_flush_view_counts" {
 }
 
 ##################################################
-# LAMBDA: Post Interactions Authorizer Lambda Exec Role
+# LAMBDA: Post Interactions Authorizer
 ##################################################
 resource "aws_iam_role" "post_interactions_authorizer_lambda_exec" {
   name = "post_interactions_authorizer_lambda_exec_role"
@@ -530,9 +530,11 @@ resource "aws_iam_role" "post_interactions_authorizer_lambda_exec" {
   })
 }
 
-##################################################
-# LAMBDA: Post Interactions Authorizer Lambda
-##################################################
+resource "aws_iam_role_policy_attachment" "post_interactions_authorizer_lambda_logs" {
+  role       = aws_iam_role.post_interactions_authorizer_lambda_exec.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
 resource "aws_lambda_function" "post_interactions_authorizer_lambda" {
   function_name = "PostInteractionsAuthorizerFunction"
   handler       = "post-interactions-authorizer.handler"
@@ -544,24 +546,24 @@ resource "aws_lambda_function" "post_interactions_authorizer_lambda" {
 
   environment {
     variables = {
-      LOG_LEVEL = "INFO"
+      ENVIRONMENT = var.environment
     }
   }
 }
 
 ##################################################
-# LAMBDA: Post Interactions Authorizer Lambda Log Group
+# LAMBDA: Post Interactions Authorizer Log Group
 ##################################################
 resource "aws_cloudwatch_log_group" "post_interactions_authorizer_lambda_log_group" {
-  name              = "/aws/lambda/${aws_lambda_function.post_interactions_authorizer_lambda.function_name}"
+  name              = "/aws/lambda/PostInteractionsAuthorizerFunction"
   retention_in_days = 7
 }
 
 ##################################################
-# LAMBDA: Post Interactions Authorizer Lambda Policy
+# LAMBDA: Post Interactions Authorizer Policy
 ##################################################
 resource "aws_iam_policy" "post_interactions_authorizer_lambda_policy" {
-  name = "${aws_lambda_function.post_interactions_authorizer_lambda.function_name}Policy"
+  name = "PostInteractionsAuthorizerPolicy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -572,19 +574,15 @@ resource "aws_iam_policy" "post_interactions_authorizer_lambda_policy" {
       ]
       Effect = "Allow"
       Resource = [
-        aws_cloudwatch_log_group.post_interactions_authorizer_lambda_log_group.arn,       # Restrict to specific log group
-        "${aws_cloudwatch_log_group.post_interactions_authorizer_lambda_log_group.arn}:*" # Allow access to log streams in the group
+        aws_cloudwatch_log_group.post_interactions_authorizer_lambda_log_group.arn,
+        "${aws_cloudwatch_log_group.post_interactions_authorizer_lambda_log_group.arn}:*"
       ]
-      }
-    ]
+    }]
   })
 }
 
-##################################################
-# LAMBDA: Post Interactions Authorizer Firebase Secrets Policy
-##################################################
 resource "aws_iam_policy" "post_interactions_authorizer_firebase_secrets_policy" {
-  name = "${aws_lambda_function.post_interactions_authorizer_lambda.function_name}FirebaseSecretsPolicy"
+  name = "PostInteractionsAuthorizerFirebaseSecretsPolicy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -593,24 +591,434 @@ resource "aws_iam_policy" "post_interactions_authorizer_firebase_secrets_policy"
       ]
       Effect = "Allow"
       Resource = [
-        "arn:aws:secretsmanager:us-east-1:314146313891:secret:firebase/service-account-key*"
+        "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:firebase/service-account-key*"
       ]
     }]
   })
 }
 
-##################################################
-# LAMBDA: Post Interactions Authorizer Lambda Attach Policy
-##################################################
 resource "aws_iam_role_policy_attachment" "post_interactions_authorizer_lambda_attach_policy" {
   role       = aws_iam_role.post_interactions_authorizer_lambda_exec.name
   policy_arn = aws_iam_policy.post_interactions_authorizer_lambda_policy.arn
 }
 
-##################################################
-# LAMBDA: Post Interactions Authorizer Firebase Secrets Policy Attachment
-##################################################
 resource "aws_iam_role_policy_attachment" "post_interactions_authorizer_firebase_secrets_attachment" {
   role       = aws_iam_role.post_interactions_authorizer_lambda_exec.name
   policy_arn = aws_iam_policy.post_interactions_authorizer_firebase_secrets_policy.arn
+}
+
+resource "aws_lambda_permission" "api_gateway_post_interactions_authorizer_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_interactions_authorizer_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Add Post Reaction
+##################################################
+resource "aws_lambda_function" "post_interactions_add_reaction_lambda" {
+  function_name = "PostInteractionsAddReactionFunction"
+  handler       = "post-reactions.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_exec.arn
+
+  filename         = "${path.module}/../dist/post-reactions.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/post-reactions.zip")
+
+  environment {
+    variables = {
+      REACTIONS_TABLE = aws_dynamodb_table.post_reactions.id,
+      EVENTS_TABLE    = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE     = "posts",
+      ENVIRONMENT     = var.environment
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Add Post Reaction Permission
+##################################################
+resource "aws_lambda_permission" "api_gateway_post_interactions_add_reaction_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_interactions_add_reaction_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Add Post Reaction Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "post_interactions_add_reaction_log_group" {
+  name              = "/aws/lambda/PostInteractionsAddReactionFunction"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Update Post Reaction
+##################################################
+resource "aws_lambda_function" "post_interactions_update_reaction_lambda" {
+  function_name = "PostInteractionsUpdateReactionFunction"
+  handler       = "put-reactions.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_exec.arn
+
+  filename         = "${path.module}/../dist/put-reactions.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/put-reactions.zip")
+
+  environment {
+    variables = {
+      REACTIONS_TABLE = aws_dynamodb_table.post_reactions.id,
+      EVENTS_TABLE    = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE     = "posts",
+      ENVIRONMENT     = var.environment
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Update Post Reaction Permission
+##################################################
+resource "aws_lambda_permission" "api_gateway_post_interactions_update_reaction_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_interactions_update_reaction_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Update Post Reaction Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "post_interactions_update_reaction_log_group" {
+  name              = "/aws/lambda/PostInteractionsUpdateReactionFunction"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Delete Post Reaction
+##################################################
+resource "aws_lambda_function" "post_interactions_delete_reaction_lambda" {
+  function_name = "PostInteractionsDeleteReactionFunction"
+  handler       = "delete-reactions.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_exec.arn
+
+  filename         = "${path.module}/../dist/delete-reactions.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/delete-reactions.zip")
+
+  environment {
+    variables = {
+      REACTIONS_TABLE = aws_dynamodb_table.post_reactions.id,
+      EVENTS_TABLE    = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE     = "posts",
+      ENVIRONMENT     = var.environment
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Delete Post Reaction Permission
+##################################################
+resource "aws_lambda_permission" "api_gateway_post_interactions_delete_reaction_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_interactions_delete_reaction_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Delete Post Reaction Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "post_interactions_delete_reaction_log_group" {
+  name              = "/aws/lambda/PostInteractionsDeleteReactionFunction"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Get Post Reaction
+##################################################
+resource "aws_lambda_function" "post_interactions_get_reaction_lambda" {
+  function_name = "PostInteractionsGetReactionFunction"
+  handler       = "get-reactions.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_exec.arn
+
+  filename         = "${path.module}/../dist/get-reactions.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/get-reactions.zip")
+
+  environment {
+    variables = {
+      REACTIONS_TABLE = aws_dynamodb_table.post_reactions.id,
+      POSTS_TABLE     = "posts",
+      ENVIRONMENT     = var.environment
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Get Post Reaction Permission
+##################################################
+resource "aws_lambda_permission" "api_gateway_post_interactions_get_reaction_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_interactions_get_reaction_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Get Post Reaction Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "post_interactions_get_reaction_log_group" {
+  name              = "/aws/lambda/PostInteractionsGetReactionFunction"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Get Comments
+##################################################
+resource "aws_lambda_function" "post_interactions_get_comments_lambda" {
+  function_name = "PostInteractionsGetCommentsFunction"
+  handler       = "get-comments.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_exec.arn
+
+  filename         = "${path.module}/../dist/get-comments.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/get-comments.zip")
+
+  environment {
+    variables = {
+      COMMENTS_TABLE     = aws_dynamodb_table.post_comments.id,
+      USER_PROFILE_TABLE = "user_profile",
+      ENVIRONMENT        = var.environment
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Get Comments Permission
+##################################################
+resource "aws_lambda_permission" "api_gateway_post_interactions_get_comments_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_interactions_get_comments_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Get Comments Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "post_interactions_get_comments_log_group" {
+  name              = "/aws/lambda/PostInteractionsGetCommentsFunction"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Reply to Comment
+##################################################
+resource "aws_lambda_function" "post_interactions_reply_comment_lambda" {
+  function_name = "PostInteractionsReplyCommentFunction"
+  handler       = "reply-to-comment.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_exec.arn
+
+  filename         = "${path.module}/../dist/reply-to-comment.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/reply-to-comment.zip")
+
+  environment {
+    variables = {
+      COMMENTS_TABLE     = aws_dynamodb_table.post_comments.id,
+      EVENTS_TABLE       = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE        = "posts",
+      USER_PROFILE_TABLE = "user_profile",
+      ENVIRONMENT        = var.environment
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Reply to Comment Permission
+##################################################
+resource "aws_lambda_permission" "api_gateway_post_interactions_reply_comment_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_interactions_reply_comment_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Reply to Comment Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "post_interactions_reply_comment_log_group" {
+  name              = "/aws/lambda/PostInteractionsReplyCommentFunction"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Add Comment Reaction
+##################################################
+resource "aws_lambda_function" "post_interactions_add_comment_reaction_lambda" {
+  function_name = "PostInteractionsAddCommentReactionFunction"
+  handler       = "comment-reactions.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_exec.arn
+
+  filename         = "${path.module}/../dist/comment-reactions.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/comment-reactions.zip")
+
+  environment {
+    variables = {
+      COMMENT_REACTIONS_TABLE = aws_dynamodb_table.comment_reactions.id,
+      EVENTS_TABLE            = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE             = "posts",
+      ENVIRONMENT             = var.environment
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Add Comment Reaction Permission
+##################################################
+resource "aws_lambda_permission" "api_gateway_post_interactions_add_comment_reaction_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_interactions_add_comment_reaction_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Add Comment Reaction Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "post_interactions_add_comment_reaction_log_group" {
+  name              = "/aws/lambda/PostInteractionsAddCommentReactionFunction"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Update Comment Reaction
+##################################################
+resource "aws_lambda_function" "post_interactions_update_comment_reaction_lambda" {
+  function_name = "PostInteractionsUpdateCommentReactionFunction"
+  handler       = "update-comment-reaction.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_exec.arn
+
+  filename         = "${path.module}/../dist/update-comment-reaction.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/update-comment-reaction.zip")
+
+  environment {
+    variables = {
+      COMMENT_REACTIONS_TABLE = aws_dynamodb_table.comment_reactions.id,
+      EVENTS_TABLE            = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE             = "posts",
+      ENVIRONMENT             = var.environment
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Update Comment Reaction Permission
+##################################################
+resource "aws_lambda_permission" "api_gateway_post_interactions_update_comment_reaction_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_interactions_update_comment_reaction_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Update Comment Reaction Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "post_interactions_update_comment_reaction_log_group" {
+  name              = "/aws/lambda/PostInteractionsUpdateCommentReactionFunction"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Delete Comment Reaction
+##################################################
+resource "aws_lambda_function" "post_interactions_delete_comment_reaction_lambda" {
+  function_name = "PostInteractionsDeleteCommentReactionFunction"
+  handler       = "delete-comment-reaction.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_exec.arn
+
+  filename         = "${path.module}/../dist/delete-comment-reaction.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/delete-comment-reaction.zip")
+
+  environment {
+    variables = {
+      COMMENT_REACTIONS_TABLE = aws_dynamodb_table.comment_reactions.id,
+      EVENTS_TABLE            = aws_dynamodb_table.post_events.id,
+      POSTS_TABLE             = "posts",
+      ENVIRONMENT             = var.environment
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Delete Comment Reaction Permission
+##################################################
+resource "aws_lambda_permission" "api_gateway_post_interactions_delete_comment_reaction_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_interactions_delete_comment_reaction_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Delete Comment Reaction Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "post_interactions_delete_comment_reaction_log_group" {
+  name              = "/aws/lambda/PostInteractionsDeleteCommentReactionFunction"
+  retention_in_days = 7
+}
+
+##################################################
+# LAMBDA: Get Comment Reaction
+##################################################
+resource "aws_lambda_function" "post_interactions_get_comment_reaction_lambda" {
+  function_name = "PostInteractionsGetCommentReactionFunction"
+  handler       = "get-comment-reactions.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_exec.arn
+
+  filename         = "${path.module}/../dist/get-comment-reactions.zip"
+  source_code_hash = filebase64sha256("${path.module}/../dist/get-comment-reactions.zip")
+
+  environment {
+    variables = {
+      COMMENT_REACTIONS_TABLE = aws_dynamodb_table.comment_reactions.id,
+      POSTS_TABLE             = "posts",
+      ENVIRONMENT             = var.environment
+    }
+  }
+}
+
+##################################################
+# LAMBDA: Get Comment Reaction Permission
+##################################################
+resource "aws_lambda_permission" "api_gateway_post_interactions_get_comment_reaction_permission" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_interactions_get_comment_reaction_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.interactions_api.execution_arn}/*/*"
+}
+
+##################################################
+# LAMBDA: Get Comment Reaction Log Group
+##################################################
+resource "aws_cloudwatch_log_group" "post_interactions_get_comment_reaction_log_group" {
+  name              = "/aws/lambda/PostInteractionsGetCommentReactionFunction"
+  retention_in_days = 7
 }

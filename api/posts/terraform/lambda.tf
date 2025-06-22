@@ -58,6 +58,46 @@ resource "aws_iam_policy" "posts_dynamodb_access" {
         ]
         Effect   = "Allow"
         Resource = "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/user_associations"
+      },
+      {
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:BatchGetItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/post_view_counters"
+      },
+      {
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:BatchGetItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/post_reactions"
+      },
+      {
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:BatchGetItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/post_comments"
+      },
+      {
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:BatchGetItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Effect   = "Allow"
+        Resource = "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/post_user_favorites"
       }
     ]
   })
@@ -76,15 +116,20 @@ resource "aws_lambda_function" "posts_get_items_lambda" {
   handler       = "posts-get-items.handler"
   runtime       = "nodejs20.x"
   role          = aws_iam_role.posts_lambda_exec.arn
+  timeout       = 30
 
   filename         = "${path.module}/../dist/posts-get-items.zip"
   source_code_hash = filebase64sha256("${path.module}/../dist/posts-get-items.zip")
 
   environment {
     variables = {
-      POSTS_TABLE        = aws_dynamodb_table.posts.id
-      USER_PROFILE_TABLE = "user_profile"
-      REQUIRED_SCOPE     = "https://api.dev.fourhorizonsed.com/beehive.post.read"
+      POSTS_TABLE         = aws_dynamodb_table.posts.id
+      USER_PROFILE_TABLE  = "user_profile"
+      REQUIRED_SCOPE      = "https://api.dev.fourhorizonsed.com/beehive.post.read"
+      VIEW_COUNTERS_TABLE = "post_view_counters"
+      REACTIONS_TABLE     = "post_reactions"
+      COMMENTS_TABLE      = "post_comments"
+      FAVORITES_TABLE     = "post_user_favorites"
     }
   }
 }
@@ -217,15 +262,20 @@ resource "aws_lambda_function" "posts_get_item_lambda" {
   handler       = "posts-get-item.handler"
   runtime       = "nodejs20.x"
   role          = aws_iam_role.posts_lambda_exec.arn
+  timeout       = 30
 
   filename         = "${path.module}/../dist/posts-get-item.zip"
   source_code_hash = filebase64sha256("${path.module}/../dist/posts-get-item.zip")
 
   environment {
     variables = {
-      POSTS_TABLE        = aws_dynamodb_table.posts.id
-      USER_PROFILE_TABLE = "user_profile"
-      REQUIRED_SCOPE     = "https://api.dev.fourhorizonsed.com/beehive.post.read"
+      POSTS_TABLE         = aws_dynamodb_table.posts.id
+      USER_PROFILE_TABLE  = "user_profile"
+      REQUIRED_SCOPE      = "https://api.dev.fourhorizonsed.com/beehive.post.read"
+      VIEW_COUNTERS_TABLE = "post_view_counters"
+      REACTIONS_TABLE     = "post_reactions"
+      COMMENTS_TABLE      = "post_comments"
+      FAVORITES_TABLE     = "post_user_favorites"
     }
   }
 }
