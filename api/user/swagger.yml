@@ -1,0 +1,720 @@
+openapi: 3.0.3
+info:
+  title: User API
+  description: API for managing user data including settings, preferences, profile, and associations
+  version: 1.0.0
+  contact:
+    name: Four Horizons Education
+    email: support@fourhorizonsed.com
+
+servers:
+  - url: https://api.dev.fourhorizonsed.com/user
+    description: Development server
+  - url: https://api.staging.fourhorizonsed.com/user
+    description: Staging server
+  - url: https://api.fourhorizonsed.com/user
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /settings:
+    get:
+      summary: Get user settings
+      description: Retrieve user settings. Returns 404 if no settings exist.
+      operationId: getUserSettings
+      tags:
+        - Settings
+      responses:
+        "200":
+          description: User settings retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSettings"
+        "401":
+          description: Unauthorized - Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Settings not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      summary: Create or update user settings
+      description: Create or update user settings. Always returns 201 on success.
+      operationId: putUserSettings
+      tags:
+        - Settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserSettingsRequest"
+      responses:
+        "201":
+          description: Settings created/updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSettings"
+        "400":
+          description: Bad request - Invalid data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+        "401":
+          description: Unauthorized - Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    options:
+      summary: CORS preflight for settings
+      operationId: optionsUserSettings
+      tags:
+        - Settings
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+
+  /preferences:
+    get:
+      summary: Get user preferences
+      description: Retrieve user preferences. Returns 404 if no preferences exist.
+      operationId: getUserPreferences
+      tags:
+        - Preferences
+      responses:
+        "200":
+          description: User preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreferences"
+        "401":
+          description: Unauthorized - Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Preferences not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      summary: Create or update user preferences
+      description: Create or update user preferences. Always returns 201 on success.
+      operationId: putUserPreferences
+      tags:
+        - Preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserPreferencesRequest"
+      responses:
+        "201":
+          description: Preferences created/updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreferences"
+        "400":
+          description: Bad request - Invalid data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized - Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    options:
+      summary: CORS preflight for preferences
+      operationId: optionsUserPreferences
+      tags:
+        - Preferences
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+
+  /profile:
+    get:
+      summary: Get user profile
+      description: Retrieve user profile. Returns 404 if no profile exists.
+      operationId: getUserProfile
+      tags:
+        - Profile
+      responses:
+        "200":
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized - Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      summary: Create or update user profile
+      description: Create or update user profile. Always returns 201 on success.
+      operationId: putUserProfile
+      tags:
+        - Profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserProfileRequest"
+      responses:
+        "201":
+          description: Profile created/updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Bad request - Invalid data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized - Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    options:
+      summary: CORS preflight for profile
+      operationId: optionsUserProfile
+      tags:
+        - Profile
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+
+  /associations:
+    get:
+      summary: Get user associations
+      description: Retrieve user associations. Returns 404 if no associations exist.
+      operationId: getUserAssociations
+      tags:
+        - Associations
+      responses:
+        "200":
+          description: User associations retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAssociations"
+        "401":
+          description: Unauthorized - Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Associations not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      summary: Create or update user associations
+      description: Create or update user associations. Always returns 201 on success.
+      operationId: putUserAssociations
+      tags:
+        - Associations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserAssociationsRequest"
+      responses:
+        "201":
+          description: Associations created/updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAssociations"
+        "400":
+          description: Bad request - Invalid data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized - Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    options:
+      summary: CORS preflight for associations
+      operationId: optionsUserAssociations
+      tags:
+        - Associations
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Firebase JWT token
+
+  schemas:
+    UserSettings:
+      type: object
+      properties:
+        PK:
+          type: string
+          description: DynamoDB partition key
+          example: "USER#user123"
+        SK:
+          type: string
+          description: DynamoDB sort key
+          example: "SETTINGS"
+        user_id:
+          type: string
+          description: User ID
+          example: "user123"
+        isDarkMode:
+          type: boolean
+          description: Whether dark mode is enabled
+          example: true
+        themeColor:
+          type: string
+          description: Theme color preference
+          example: "blue"
+        fontSize:
+          type: integer
+          minimum: 10
+          maximum: 30
+          description: Font size preference in points
+          example: 16
+        biometricEnabled:
+          type: boolean
+          description: Whether biometric authentication is enabled
+          example: false
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2023-01-01T00:00:00.000Z"
+      required:
+        - PK
+        - SK
+        - user_id
+
+    UserSettingsRequest:
+      type: object
+      properties:
+        isDarkMode:
+          type: boolean
+          description: Whether dark mode is enabled
+          example: true
+        themeColor:
+          type: string
+          description: Theme color preference (red, green, blue, yellow, orange, purple, pink, black, white, or hex color)
+          example: "blue"
+        fontSize:
+          type: integer
+          minimum: 10
+          maximum: 30
+          description: Font size preference in points
+          example: 16
+        biometricEnabled:
+          type: boolean
+          description: Whether biometric authentication is enabled
+          example: false
+
+    UserPreferences:
+      type: object
+      properties:
+        PK:
+          type: string
+          description: DynamoDB partition key
+          example: "USER#user123"
+        SK:
+          type: string
+          description: DynamoDB sort key
+          example: "PREFERENCES#user123"
+        user_id:
+          type: string
+          description: User ID
+          example: "user123"
+        locations:
+          type: array
+          description: User's preferred locations
+          items:
+            type: object
+            properties:
+              lat:
+                type: number
+                format: double
+                example: 40.7128
+              lng:
+                type: number
+                format: double
+                example: -74.0060
+        schools:
+          type: array
+          description: User's preferred schools
+          items:
+            type: string
+          example: ["school1", "school2"]
+        districts:
+          type: array
+          description: User's preferred school districts
+          items:
+            type: string
+          example: ["district1"]
+        topics:
+          type: array
+          description: User's preferred topics
+          items:
+            type: string
+          example: ["math", "science"]
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2023-01-01T00:00:00.000Z"
+      required:
+        - PK
+        - SK
+        - user_id
+        - locations
+        - schools
+        - districts
+        - topics
+
+    UserPreferencesRequest:
+      type: object
+      properties:
+        locations:
+          type: array
+          description: User's preferred locations
+          items:
+            type: object
+            properties:
+              lat:
+                type: number
+                format: double
+                example: 40.7128
+              lng:
+                type: number
+                format: double
+                example: -74.0060
+        schools:
+          type: array
+          description: User's preferred schools
+          items:
+            type: string
+          example: ["school1", "school2"]
+        districts:
+          type: array
+          description: User's preferred school districts
+          items:
+            type: string
+          example: ["district1"]
+        topics:
+          type: array
+          description: User's preferred topics
+          items:
+            type: string
+          example: ["math", "science"]
+      required:
+        - locations
+        - schools
+        - districts
+        - topics
+
+    UserProfile:
+      type: object
+      properties:
+        PK:
+          type: string
+          description: DynamoDB partition key
+          example: "USER#user123"
+        SK:
+          type: string
+          description: DynamoDB sort key
+          example: "PROFILE#user123"
+        user_id:
+          type: string
+          description: User ID
+          example: "user123"
+        first_name:
+          type: string
+          description: User's first name
+          example: "John"
+        last_name:
+          type: string
+          description: User's last name
+          example: "Doe"
+        handle:
+          type: string
+          description: User's unique handle
+          example: "johndoe"
+        profile_picture_url:
+          type: string
+          format: uri
+          description: URL to user's profile picture
+          example: "https://example.com/avatar.jpg"
+        onboarding_complete:
+          type: boolean
+          description: Whether onboarding is complete
+          example: true
+        onboarding_complete_at:
+          type: string
+          format: date-time
+          description: Onboarding completion timestamp
+          example: "2023-01-01T00:00:00.000Z"
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2023-01-01T00:00:00.000Z"
+      required:
+        - PK
+        - SK
+        - user_id
+        - first_name
+        - last_name
+        - handle
+
+    UserProfileRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          description: User's first name
+          example: "John"
+        lastName:
+          type: string
+          description: User's last name
+          example: "Doe"
+        handle:
+          type: string
+          description: User's unique handle
+          example: "johndoe"
+        profilePictureUrl:
+          type: string
+          format: uri
+          description: URL to user's profile picture
+          example: "https://example.com/avatar.jpg"
+        onboardingComplete:
+          type: boolean
+          description: Whether onboarding is complete
+          example: true
+      required:
+        - firstName
+        - lastName
+        - handle
+
+    UserAssociations:
+      type: object
+      properties:
+        PK:
+          type: string
+          description: DynamoDB partition key
+          example: "USER#user123"
+        SK:
+          type: string
+          description: DynamoDB sort key
+          example: "ASSOCIATIONS#user123"
+        user_id:
+          type: string
+          description: User ID
+          example: "user123"
+        associations:
+          type: array
+          description: User's associations
+          items:
+            type: object
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2023-01-01T00:00:00.000Z"
+      required:
+        - PK
+        - SK
+        - user_id
+
+    UserAssociationsRequest:
+      type: object
+      properties:
+        associations:
+          type: array
+          description: User's associations
+          items:
+            type: object
+      required:
+        - associations
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Settings not found"
+        message:
+          type: string
+          description: Additional error details
+          example: "No settings exist for this user"
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+          example: "Invalid data"
+        details:
+          type: array
+          description: List of validation errors
+          items:
+            type: string
+          example:
+            [
+              "isDarkMode must be a boolean",
+              "fontSize must be between 10 and 30",
+            ]
+
+tags:
+  - name: Settings
+    description: User settings management
+  - name: Preferences
+    description: User preferences management
+  - name: Profile
+    description: User profile management
+  - name: Associations
+    description: User associations management

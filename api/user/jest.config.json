@@ -1,0 +1,13 @@
+{
+  "preset": "ts-jest",
+  "testEnvironment": "node",
+  "testMatch": ["**/*.test.ts"],
+  "collectCoverageFrom": ["src/**/*.ts", "!src/**/*.test.ts"],
+  "coverageDirectory": "coverage",
+  "coverageReporters": ["text", "lcov"],
+  "setupFilesAfterEnv": [],
+  "moduleFileExtensions": ["ts", "js", "json"],
+  "transform": {
+    "^.+\\.ts$": "ts-jest"
+  }
+}

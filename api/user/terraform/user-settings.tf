@@ -184,8 +184,11 @@ resource "aws_iam_policy" "user_settings_put_lambda_policy" {
       ]
       },
       {
-        Effect   = "Allow",
-        Action   = "dynamodb:PutItem",
+        Effect = "Allow",
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem"
+        ],
         Resource = "${aws_dynamodb_table.settings.arn}"
       }
     ]
